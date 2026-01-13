@@ -40,3 +40,41 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Editor UI styles */
+.app-root {
+  position: relative;
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+
+.palette {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(20,20,40,0.06);
+}
+.palette-title { font-weight: 600; margin-bottom: 6px }
+.palette button { display:block; margin:6px 0; padding:6px 10px }
+
+.editor { box-shadow: 0 6px 18px rgba(20,20,40,0.08); border-radius:4px }
+.editor-header {
+  background: #fafafa;
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  cursor: move;
+  font-size: 13px;
+}
+.editor-canvas { position: relative; width:100%; height: calc(100% - 28px); }
+.editor-resize { position: absolute; right: 4px; bottom: 4px; width: 14px; height: 14px; background: #ddd; cursor: nwse-resize; border-radius: 3px }
+
+.shape { position: absolute; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center }
+.shape.circle { border-radius: 50%; }
+.resize-handle { position:absolute; right:4px; bottom:4px; width:10px; height:10px; background:#333; opacity:0.7; cursor:nwse-resize; border-radius:2px }
+
+.shape.selected { box-shadow: 0 0 0 3px rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.9) }
+
