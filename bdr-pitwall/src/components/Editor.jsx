@@ -1,108 +1,195 @@
-import React from 'react'
+import React, { useRef, useEffect } from 'react'
 
-export default function Editor({ editorRect, setEditorRect, shapes, onUpdateShape, onSelectShape, selectedId }) {
-  const editorStyle = {
-    position: 'absolute',
-    left: editorRect.x,
-    top: editorRect.y,
-    width: editorRect.width,
-    height: editorRect.height,
-    border: '2px dashed #888',
-    background: '#fff',
-    boxSizing: 'border-box',
+export default function Editor({
+  shapes,
+  onUpdateShape,
+  onSelectShape,
+  selectedId,
+  panX,
+  setPanX,
+  panY,
+  setPanY,
+  gridSize,
+  zoom,
+  setZoom,
+  renderShape,
+}) {
+  const canvasRef = useRef(null)
+  const isPanningRef = useRef(false)
+  const panStartRef = useRef({ x: 0, y: 0 })
+
+  // Snap to grid helper
+  const snapToGrid = (value) => Math.round(value / gridSize) * gridSize
+
+  // Handle canvas panning with middle mouse button or ctrl+drag
+  const handleCanvasMouseDown = (e) => {
+    // Only pan with middle mouse button (button === 1) or if ctrl is held
+    if (e.button !== 1 && !e.nativeEvent.ctrlKey) return
+    if (e.target !== canvasRef.current) return
+
+    e.preventDefault()
+    isPanningRef.current = true
+    panStartRef.current = { x: e.clientX, y: e.clientY }
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isPanningRef.current) return
+      const dx = e.clientX - panStartRef.current.x
+      const dy = e.clientY - panStartRef.current.y
+      setPanX(panX + dx)
+      setPanY(panY + dy)
+      panStartRef.current = { x: e.clientX, y: e.clientY }
+    }
+
+    const handleMouseUp = () => {
+      isPanningRef.current = false
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [panX, panY, setPanX, setPanY])
+
+  // Draw grid pattern
+  const gridPattern = `
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent ${gridSize - 1}px,
+      rgba(255,255,255,0.08) ${gridSize - 1}px,
+      rgba(255,255,255,0.08) ${gridSize}px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent ${gridSize - 1}px,
+      rgba(255,255,255,0.08) ${gridSize - 1}px,
+      rgba(255,255,255,0.08) ${gridSize}px
+    )
+  `
+
+  const canvasStyle = {
+    position: 'relative',
+    flex: 1,
+    minHeight: '100vh',
+    background: '#0e1230',
+    backgroundImage: gridPattern,
+    backgroundPosition: `${panX}px ${panY}px`,
+    backgroundSize: `${gridSize * zoom}px ${gridSize * zoom}px`,
     overflow: 'hidden',
+    cursor: 'grab',
+    borderLeft: '1px solid rgba(255,255,255,0.06)',
   }
 
-  function startMove(e) {
-    e.preventDefault()
-    const startX = e.clientX
-    const startY = e.clientY
-    const startRect = { ...editorRect }
-    function onMove(ev) {
-      const dx = ev.clientX - startX
-      const dy = ev.clientY - startY
-      setEditorRect({ ...startRect, x: startRect.x + dx, y: startRect.y + dy })
-    }
-    function onUp() {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
+  const clampZoom = (value) => Math.min(2, Math.max(0.5, value))
 
-  function startResize(e) {
+  const handleWheel = (e) => {
+    if (e.ctrlKey || e.metaKey) return
     e.preventDefault()
-    e.stopPropagation()
-    const startX = e.clientX
-    const startY = e.clientY
-    const startRect = { ...editorRect }
-    function onMove(ev) {
-      const dw = ev.clientX - startX
-      const dh = ev.clientY - startY
-      setEditorRect({ ...startRect, width: Math.max(100, startRect.width + dw), height: Math.max(60, startRect.height + dh) })
-    }
-    function onUp() {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    const delta = e.deltaY
+    const factor = delta > 0 ? 0.9 : 1.1
+    setZoom((z) => {
+      const next = clampZoom(Number((z * factor).toFixed(2)))
+      return next
+    })
   }
 
   return (
-    <div className="editor" style={editorStyle}>
-      <div className="editor-header" onMouseDown={startMove}>Editor Area</div>
-      <div className="editor-canvas">
-        {shapes.map((s, idx) => (
+    <div 
+      className="editor-infinite"
+      ref={canvasRef}
+      style={canvasStyle}
+      onMouseDown={handleCanvasMouseDown}
+      onWheel={handleWheel}
+    >
+      {shapes.map((s, idx) => (
+        <div
+          key={s.id}
+          className={`grid-shape ${selectedId === s.id ? 'selected' : ''}`}
+          style={{
+            position: 'absolute',
+            left: s.x * zoom + panX,
+            top: s.y * zoom + panY,
+            width: s.width * zoom,
+            height: s.height * zoom,
+            background: 'transparent',
+            boxSizing: 'border-box',
+            border: selectedId === s.id ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.05)',
+            zIndex: idx,
+            userSelect: 'none',
+            cursor: 'move',
+          }}
+          onMouseDown={(ev) => {
+            if (ev.button !== 0) return // Only left click
+            ev.stopPropagation()
+            onSelectShape && onSelectShape(s.id)
+            
+            const startX = ev.clientX
+            const startY = ev.clientY
+            const startPos = { x: s.x, y: s.y }
+            
+            const onMove = (e2) => {
+              const dx = (e2.clientX - startX) / zoom
+              const dy = (e2.clientY - startY) / zoom
+              const newX = snapToGrid(startPos.x + dx)
+              const newY = snapToGrid(startPos.y + dy)
+              onUpdateShape(s.id, { x: newX, y: newY })
+            }
+            
+            const onUp = () => {
+              window.removeEventListener('mousemove', onMove)
+              window.removeEventListener('mouseup', onUp)
+            }
+            
+            window.addEventListener('mousemove', onMove)
+            window.addEventListener('mouseup', onUp)
+          }}
+        >
+          <div className="shape-body" style={{ width: '100%', height: '100%' }}>
+            {renderShape ? renderShape(s) : null}
+          </div>
           <div
-            key={s.id}
-            className={`shape ${s.type} ${selectedId === s.id ? 'selected' : ''}`}
-            style={{ left: s.x, top: s.y, width: s.width, height: s.height, background: s.color, zIndex: idx }}
+            className="grid-resize-handle"
+            style={{
+              position: 'absolute',
+              right: -5,
+              bottom: -5,
+              width: 16,
+              height: 16,
+              background: '#3b82f6',
+              cursor: 'nwse-resize',
+              opacity: selectedId === s.id ? 1 : 0,
+              transition: 'opacity 0.2s',
+            }}
             onMouseDown={(ev) => {
               ev.stopPropagation()
-              // set selection first
-              onSelectShape && onSelectShape(s.id)
               const startX = ev.clientX
               const startY = ev.clientY
-              const startPos = { x: s.x, y: s.y }
-              function onMove(e2) {
-                const dx = e2.clientX - startX
-                const dy = e2.clientY - startY
-                onUpdateShape(s.id, { x: startPos.x + dx, y: startPos.y + dy })
+              const startSize = { width: s.width, height: s.height }
+              
+              const onMove = (e2) => {
+                const dw = (e2.clientX - startX) / zoom
+                const dh = (e2.clientY - startY) / zoom
+                const newWidth = Math.max(gridSize, snapToGrid(startSize.width + dw))
+                const newHeight = Math.max(gridSize, snapToGrid(startSize.height + dh))
+                onUpdateShape(s.id, { width: newWidth, height: newHeight })
               }
-              function onUp() {
+              
+              const onUp = () => {
                 window.removeEventListener('mousemove', onMove)
                 window.removeEventListener('mouseup', onUp)
               }
+              
               window.addEventListener('mousemove', onMove)
               window.addEventListener('mouseup', onUp)
             }}
-          >
-            <div
-              className="resize-handle"
-              onMouseDown={(ev) => {
-                ev.stopPropagation()
-                const startX = ev.clientX
-                const startY = ev.clientY
-                const startSize = { width: s.width, height: s.height }
-                function onMove(e2) {
-                  const dw = e2.clientX - startX
-                  const dh = e2.clientY - startY
-                  onUpdateShape(s.id, { width: Math.max(20, startSize.width + dw), height: Math.max(20, startSize.height + dh) })
-                }
-                function onUp() {
-                  window.removeEventListener('mousemove', onMove)
-                  window.removeEventListener('mouseup', onUp)
-                }
-                window.addEventListener('mousemove', onMove)
-                window.addEventListener('mouseup', onUp)
-              }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="editor-resize" onMouseDown={startResize} />
+          />
+        </div>
+      ))}
     </div>
   )
 }
