@@ -46,6 +46,8 @@ Wrap a React application into a native desktop app using Electron. Provides a mo
 
 > note that npm occassionally is unable to build packages on running npm install. it will typically say please run npm audit fix. this works most of the time. otherwise, try npm audit fix --force
 
+> note that on windows, you need to enable developer settings. (settings -> system -> advanced -> developer mode)
+
 ---
 
 ## Folder Structure
