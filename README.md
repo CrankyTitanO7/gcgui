@@ -37,6 +37,15 @@ Wrap a React application into a native desktop app using Electron. Provides a mo
 3. npm install
 4. npm run dev
 
+## to build app as standalone
+> this is unrecommended, as it is likely we will implement Github actions to auto-build this. However, if it is necessary, here are instructions to manually build on your machine.
+
+1. cd bdr-pitwall
+2. npm install
+3. npm run package
+
+> note that npm occassionally is unable to build packages on running npm install. it will typically say please run npm audit fix. this works most of the time. otherwise, try npm audit fix --force
+
 ---
 
 ## Folder Structure
