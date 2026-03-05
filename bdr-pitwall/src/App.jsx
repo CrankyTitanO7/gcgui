@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './App.css'
 import Editor from './components/Editor'
 import Palette from './components/Palette'
+import { saveConfig, loadConfig, createConfig, validateConfig, getDefaultConfig } from './utils/config'
 
 const GRID_SIZE = 28
 
@@ -163,6 +164,39 @@ function App() {
     setSelectedId(null)
   }
 
+  // Save current configuration
+  function saveConfiguration() {
+    const config = createConfig(shapes, panX, panY, zoom)
+    saveConfig(config, 'pitwall-config')
+  }
+
+  // Load configuration from file
+  function loadConfiguration(file) {
+    loadConfig(file)
+      .then((loadedConfig) => {
+        const validatedConfig = validateConfig(loadedConfig)
+        setShapes(validatedConfig.shapes)
+        setPanX(validatedConfig.view.panX)
+        setPanY(validatedConfig.view.panY)
+        setZoom(validatedConfig.view.zoom)
+        setSelectedId(null)
+      })
+      .catch((error) => {
+        console.error('Failed to load configuration:', error)
+        alert('Failed to load configuration file. Please check the file format.')
+      })
+  }
+
+  // Reset to default configuration
+  function resetConfiguration() {
+    const defaultConfig = getDefaultConfig()
+    setShapes(defaultConfig.shapes)
+    setPanX(defaultConfig.view.panX)
+    setPanY(defaultConfig.view.panY)
+    setZoom(defaultConfig.view.zoom)
+    setSelectedId(null)
+  }
+
   return (
     <div className="app-shell">
       <Palette
@@ -170,6 +204,9 @@ function App() {
         onAdd={addShape}
         onDelete={deleteSelected}
         onClear={clearAll}
+        onSave={saveConfiguration}
+        onLoad={loadConfiguration}
+        onReset={resetConfiguration}
         hasSelection={Boolean(selectedId)}
       />
       <Editor

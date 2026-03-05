@@ -54,7 +54,16 @@ function Preview({ type }) {
   }
 }
 
-export default function Palette({ components, onAdd, onDelete, onClear, hasSelection }) {
+export default function Palette({ components, onAdd, onDelete, onClear, onSave, onLoad, onReset, hasSelection }) {
+  const handleFileChange = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      onLoad(file)
+      // Clear the file input so the same file can be loaded again
+      event.target.value = null
+    }
+  }
+
   return (
     <div className="palette-sidebar">
       <div className="palette-header">Components</div>
@@ -80,6 +89,35 @@ export default function Palette({ components, onAdd, onDelete, onClear, hasSelec
               </div>
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="section-title">Configuration</div>
+        <div className="config-controls">
+          <button 
+            className="config-btn save-btn" 
+            onClick={onSave} 
+            title="Save current layout"
+          >
+            Save Layout
+          </button>
+          <label className="config-btn load-btn" title="Load saved layout">
+            Load Layout
+            <input 
+              type="file" 
+              accept=".json,application/json" 
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+          </label>
+          <button 
+            className="config-btn reset-btn" 
+            onClick={onReset} 
+            title="Reset to default"
+          >
+            Reset
+          </button>
         </div>
       </div>
 

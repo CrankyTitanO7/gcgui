@@ -185,6 +185,60 @@
   cursor: not-allowed;
 }
 
+.config-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d7dbff;
+  transition: all 0.2s;
+  text-align: left;
+  border: 1px solid #2c3155;
+  background: #171c3d;
+}
+
+.config-btn:hover {
+  background: #1f2348;
+  border-color: #3b3f66;
+}
+
+.config-btn.save-btn {
+  background: linear-gradient(180deg, #1f2348, #1a1e3a);
+  border-color: #3b3f66;
+}
+
+.config-btn.save-btn:hover {
+  background: linear-gradient(180deg, #242852, #1f2348);
+}
+
+.config-btn.load-btn {
+  background: linear-gradient(180deg, #1f2348, #1a1e3a);
+  border-color: #3b3f66;
+}
+
+.config-btn.load-btn:hover {
+  background: linear-gradient(180deg, #242852, #1f2348);
+}
+
+.config-btn.reset-btn {
+  background: linear-gradient(180deg, #2a1f3d, #221a33);
+  border-color: #5a3b66;
+  color: #f0d6ff;
+}
+
+.config-btn.reset-btn:hover {
+  background: linear-gradient(180deg, #34244a, #2a1f3d);
+}
+
 .hint {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
