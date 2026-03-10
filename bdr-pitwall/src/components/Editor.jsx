@@ -17,6 +17,8 @@ export default function Editor({
   const canvasRef = useRef(null)
   const isPanningRef = useRef(false)
   const panStartRef = useRef({ x: 0, y: 0 })
+  const MIN_ZOOM = 0.75
+  const MAX_ZOOM = 1.5
 
   // Snap to grid helper
   const snapToGrid = (value) => Math.round(value / gridSize) * gridSize
@@ -75,7 +77,8 @@ export default function Editor({
   const canvasStyle = {
     position: 'relative',
     flex: 1,
-    minHeight: '100vh',
+    width: '100%',
+    height: '100%',
     background: '#0e1230',
     backgroundImage: gridPattern,
     backgroundPosition: `${panX}px ${panY}px`,
@@ -85,13 +88,13 @@ export default function Editor({
     borderLeft: '1px solid rgba(255,255,255,0.06)',
   }
 
-  const clampZoom = (value) => Math.min(2, Math.max(0.5, value))
+  const clampZoom = (value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value))
 
   const handleWheel = (e) => {
     if (e.ctrlKey || e.metaKey) return
     e.preventDefault()
     const delta = e.deltaY
-    const factor = delta > 0 ? 0.9 : 1.1
+    const factor = delta > 0 ? 0.95 : 1.05
     setZoom((z) => {
       const next = clampZoom(Number((z * factor).toFixed(2)))
       return next
@@ -149,7 +152,7 @@ export default function Editor({
             window.addEventListener('mouseup', onUp)
           }}
         >
-          <div className="shape-body" style={{ width: '100%', height: '100%' }}>
+          <div className="shape-body" style={{ width: '100%', height: '100%', fontSize: `${zoom}em` }}>
             {renderShape ? renderShape(s) : null}
           </div>
           <div

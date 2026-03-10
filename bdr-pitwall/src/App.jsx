@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import Editor from './components/Editor'
 import Palette from './components/Palette'
+import ControlBar from './components/ControlBar'
 import { saveConfig, loadConfig, createConfig, validateConfig, getDefaultConfig } from './utils/config'
 
 const GRID_SIZE = 28
@@ -132,8 +133,15 @@ function App() {
   const [panX, setPanX] = useState(0)
   const [panY, setPanY] = useState(0)
   const [zoom, setZoom] = useState(1)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [dataSource, setDataSource] = useState('live')
+  const [usbPort, setUsbPort] = useState('')
+  const [logFile, setLogFile] = useState(null)
+  const [isRunning, setIsRunning] = useState(false)
+  const [layoutLocked, setLayoutLocked] = useState(false)
 
   function addShape(component) {
+    if (layoutLocked) return
     const id = Date.now()
     const width = component.w * GRID_SIZE
     const height = component.h * GRID_SIZE
@@ -150,17 +158,14 @@ function App() {
   }
 
   function onUpdateShape(id, patch) {
+    if (layoutLocked) return
     setShapes((arr) => arr.map((s) => (s.id === id ? { ...s, ...patch } : s)))
   }
 
   function deleteSelected() {
+    if (layoutLocked) return
     if (!selectedId) return
     setShapes((arr) => arr.filter((s) => s.id !== selectedId))
-    setSelectedId(null)
-  }
-
-  function clearAll() {
-    setShapes([])
     setSelectedId(null)
   }
 
@@ -189,6 +194,7 @@ function App() {
 
   // Reset to default configuration
   function resetConfiguration() {
+    if (layoutLocked) return
     const defaultConfig = getDefaultConfig()
     setShapes(defaultConfig.shapes)
     setPanX(defaultConfig.view.panX)
@@ -197,17 +203,38 @@ function App() {
     setSelectedId(null)
   }
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (layoutLocked || !selectedId || event.key !== 'Delete') return
+
+      const target = event.target
+      const isTypingTarget =
+        target instanceof HTMLElement &&
+        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+
+      if (isTypingTarget) return
+
+      setShapes((arr) => arr.filter((s) => s.id !== selectedId))
+      setSelectedId(null)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [layoutLocked, selectedId])
+
   return (
     <div className="app-shell">
-      <Palette
-        components={COMPONENTS}
-        onAdd={addShape}
-        onDelete={deleteSelected}
-        onClear={clearAll}
-        onSave={saveConfiguration}
-        onLoad={loadConfiguration}
-        onReset={resetConfiguration}
-        hasSelection={Boolean(selectedId)}
+      <ControlBar
+        dataSource={dataSource}
+        setDataSource={setDataSource}
+        usbPort={usbPort}
+        setUsbPort={setUsbPort}
+        logFile={logFile}
+        setLogFile={setLogFile}
+        isRunning={isRunning}
+        setIsRunning={setIsRunning}
+        onOpenPalette={() => setPaletteOpen(true)}
+        layoutLocked={layoutLocked}
       />
       <Editor
         shapes={shapes}
@@ -222,6 +249,19 @@ function App() {
         zoom={zoom}
         setZoom={setZoom}
         renderShape={(shape) => renderComponent(shape.type)}
+      />
+      <Palette
+        components={COMPONENTS}
+        onAdd={addShape}
+        onDelete={deleteSelected}
+        onSave={saveConfiguration}
+        onLoad={loadConfiguration}
+        onReset={resetConfiguration}
+        hasSelection={Boolean(selectedId)}
+        isOpen={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        isLocked={layoutLocked}
+        onToggleLayoutLock={() => setLayoutLocked((v) => !v)}
       />
     </div>
   )

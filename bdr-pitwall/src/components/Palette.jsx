@@ -54,7 +54,19 @@ function Preview({ type }) {
   }
 }
 
-export default function Palette({ components, onAdd, onDelete, onClear, onSave, onLoad, onReset, hasSelection }) {
+export default function Palette({
+  components,
+  onAdd,
+  onDelete,
+  onSave,
+  onLoad,
+  onReset,
+  hasSelection,
+  isOpen,
+  onClose,
+  isLocked,
+  onToggleLayoutLock,
+}) {
   const handleFileChange = (event) => {
     const file = event.target.files[0]
     if (file) {
@@ -64,84 +76,103 @@ export default function Palette({ components, onAdd, onDelete, onClear, onSave, 
     }
   }
 
+  const handleOverlayClick = (e) => {
+    if (isOpen && e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
   return (
-    <div className="palette-sidebar">
-      <div className="palette-header">Components</div>
+    <div className={`palette-overlay ${isOpen ? 'open' : 'closed'}`} onClick={handleOverlayClick}>
+      <div className="palette-modal">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div className="palette-header">Components</div>
+          <button className="palette-close-btn" onClick={onClose}>✕</button>
+        </div>
 
-      <div className="section">
-        <div className="section-title">Drag & drop</div>
-        <div className="component-list">
-          {components.map((item) => (
+        <div className="section">
+          <div className="section-title">Add Widgets</div>
+          <div className="component-list">
+            {components.map((item) => (
+              <button
+                key={item.type}
+                className="component-chip"
+                onClick={() => {
+                  if (isLocked) return
+                  onAdd(item)
+                  onClose()
+                }}
+                title={`Add ${item.label}`}
+              >
+                <div className="chip-preview">
+                  <Preview type={item.type} />
+                </div>
+                <div className="chip-meta">
+                  <span>{item.label}</span>
+                  <span className="chip-size">
+                    {item.w}x{item.h}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="section">
+          <div className="section-title">Configuration</div>
+          <div className="config-controls">
             <button
-              key={item.type}
-              className="component-chip"
-              onClick={() => onAdd(item)}
-              title={`Add ${item.label}`}
+              className={`config-btn ${isLocked ? 'reset-btn' : 'save-btn'}`}
+              onClick={onToggleLayoutLock}
+              title={isLocked ? 'Unlock layout for editing' : 'Lock layout to prevent edits'}
             >
-              <div className="chip-preview">
-                <Preview type={item.type} />
-              </div>
-              <div className="chip-meta">
-                <span>{item.label}</span>
-                <span className="chip-size">
-                  {item.w}x{item.h}
-                </span>
-              </div>
+              {isLocked ? 'Unlock Layout' : 'Lock Layout'}
             </button>
-          ))}
+            <button 
+              className="config-btn save-btn" 
+              onClick={onSave} 
+              title="Save current layout"
+            >
+              Save Layout
+            </button>
+            <label className="config-btn load-btn" title="Load saved layout">
+              Load Layout
+              <input 
+                type="file" 
+                accept=".json,application/json" 
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+            </label>
+            <button 
+              className="config-btn reset-btn" 
+              onClick={onReset} 
+              title="Reset to default"
+            >
+              Reset
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="section">
-        <div className="section-title">Configuration</div>
-        <div className="config-controls">
-          <button 
-            className="config-btn save-btn" 
-            onClick={onSave} 
-            title="Save current layout"
+        <div className="section">
+          <button
+            className="delete-btn"
+            onClick={onDelete}
+            disabled={!hasSelection || isLocked}
+            title={hasSelection ? 'Delete selected block' : 'No selection'}
           >
-            Save Layout
-          </button>
-          <label className="config-btn load-btn" title="Load saved layout">
-            Load Layout
-            <input 
-              type="file" 
-              accept=".json,application/json" 
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
-          </label>
-          <button 
-            className="config-btn reset-btn" 
-            onClick={onReset} 
-            title="Reset to default"
-          >
-            Reset
+            Delete Selected
           </button>
         </div>
-      </div>
 
-      <div className="section">
-        <button
-          className="delete-btn"
-          onClick={onDelete}
-          disabled={!hasSelection}
-          title={hasSelection ? 'Delete selected block' : 'No selection'}
-        >
-          Delete Selected
-        </button>
-        <button className="clear-btn" onClick={onClear} title="Remove all blocks">
-          Clear All
-        </button>
-      </div>
-
-      <div className="section hint">
-        <div style={{ fontSize: 12, color: '#c9cee8' }}>
-          <p>• Left-click to move blocks</p>
-          <p>• Drag corner handles to resize</p>
-          <p>• Middle-click (or Ctrl+drag) to pan canvas</p>
-          <p>• Use mouse wheel to zoom</p>
-          <p>• Blocks snap to the grid</p>
+        <div className="section hint">
+          <div style={{ fontSize: 12, color: '#c9cee8' }}>
+            <p>• Left-click to move blocks</p>
+            <p>• Drag corner handles to resize</p>
+            <p>• Middle-click (or Ctrl+drag) to pan canvas</p>
+            <p>• Use mouse wheel to zoom</p>
+            <p>• Blocks snap to the grid</p>
+          </div>
         </div>
       </div>
     </div>
