@@ -4,6 +4,7 @@ export default function Editor({
   shapes,
   onUpdateShape,
   onSelectShape,
+  onOpenShapeMenu,
   selectedId,
   panX,
   setPanX,
@@ -150,6 +151,13 @@ export default function Editor({
             
             window.addEventListener('mousemove', onMove)
             window.addEventListener('mouseup', onUp)
+          }}
+          onContextMenu={(ev) => {
+            ev.preventDefault()
+            ev.stopPropagation()
+            onSelectShape && onSelectShape(s.id)
+            onOpenShapeMenu &&
+              onOpenShapeMenu({ id: s.id, x: ev.clientX, y: ev.clientY })
           }}
         >
           <div className="shape-body" style={{ width: '100%', height: '100%', fontSize: `${zoom}em` }}>

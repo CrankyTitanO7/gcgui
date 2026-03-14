@@ -78,7 +78,9 @@ export function createConfig(shapes, panX, panY, zoom) {
       x: shape.x,
       y: shape.y,
       width: shape.width,
-      height: shape.height
+      height: shape.height,
+      name: shape.name,
+      dataField: shape.dataField
     })),
     view: {
       panX,
@@ -105,10 +107,15 @@ export function validateConfig(config) {
   }
   
   // Validate shapes
-  const shapes = config.shapes || []
-  if (!Array.isArray(shapes)) {
+  const rawShapes = config.shapes || []
+  if (!Array.isArray(rawShapes)) {
     throw new Error('Invalid shapes format')
   }
+  const shapes = rawShapes.map((shape) => ({
+    ...shape,
+    name: typeof shape?.name === 'string' ? shape.name : '',
+    dataField: typeof shape?.dataField === 'string' ? shape.dataField : ''
+  }))
   
   // Validate view settings
   const view = config.view || {}

@@ -2,53 +2,19 @@ import React from 'react'
 
 function Preview({ type }) {
   switch (type) {
-    case 'frame-grid':
+    case 'number':
       return (
-        <div className="preview-block grid">
-          <div className="preview-rows">
-            {Array.from({ length: 3 }).map((_, r) => (
-              <div key={r} className="preview-row" />
-            ))}
-          </div>
+        <div className="preview-block number">
+          <div className="preview-title">72</div>
+          <div className="preview-sub">speed</div>
         </div>
       )
-    case 'media':
-      return <div className="preview-block media" />
-    case 'weather':
+    case 'line-plot':
       return (
-        <div className="preview-block weather">
-          <div className="preview-title">73°F</div>
-          <div className="preview-sub">Sunny</div>
+        <div className="preview-block line">
+          <div className="preview-line" />
         </div>
       )
-    case 'metric-duo':
-      return (
-        <div className="preview-block metrics">
-          <div className="preview-title">26 mph</div>
-          <div className="preview-title">26 °C</div>
-        </div>
-      )
-    case 'sparkline-panel':
-      return (
-        <div className="preview-block spark">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="preview-row short" />
-          ))}
-        </div>
-      )
-    case 'frame-four':
-      return (
-        <div className="preview-block list">
-          <div className="preview-row short" />
-          <div className="preview-row short" />
-        </div>
-      )
-    case 'pill':
-      return <div className="preview-block pill">Pill</div>
-    case 'small-card':
-      return <div className="preview-block card">Text</div>
-    case 'table':
-      return <div className="preview-block table" />
     default:
       return <div className="preview-block" />
   }
@@ -168,9 +134,12 @@ export default function Palette({
         <div className="section hint">
           <div style={{ fontSize: 12, color: '#c9cee8' }}>
             <p>• Left-click to move blocks</p>
+            <p>• Right-click a widget for Edit/Delete</p>
             <p>• Drag corner handles to resize</p>
             <p>• Middle-click (or Ctrl+drag) to pan canvas</p>
             <p>• Use mouse wheel to zoom</p>
+            <p>• Press E to edit selected widget</p>
+            <p>• Press Esc to close editor panels</p>
             <p>• Blocks snap to the grid</p>
           </div>
         </div>
