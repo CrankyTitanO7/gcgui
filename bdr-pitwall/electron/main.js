@@ -5,6 +5,24 @@ const path = require('path');
 // You can override in development with: ELECTRON_DEBUG_TOOLS=0
 const isDebugToolsEnabled = !app.isPackaged && process.env.ELECTRON_DEBUG_TOOLS !== '0';
 
+
+// serial port build
+const { SerialPort } = require('serialport');
+const { ReadlineParser } = require('@serialport/parser-readline');
+
+const port = new SerialPort({
+  path: '/dev/ttyUSB0',   // or 'COM3' on Windows
+  baudRate: 115200
+});
+
+const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
+
+parser.on('data', (line) => {
+  console.log('Received:', line);
+  // Send to renderer via IPC
+  win.webContents.send('serial-data', line);
+});
+
 function attachDebugShortcuts(win) {
   if (!isDebugToolsEnabled) return;
 
