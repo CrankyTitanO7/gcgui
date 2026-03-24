@@ -98,6 +98,50 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [dataSource, setDataSource] = useState('live')
   const [usbPort, setUsbPort] = useState('')
+  const [availablePorts, setAvailablePorts] = useState([])
+  const [isScanning, setIsScanning] = useState(false)
+
+  // Function to refresh available ports
+  const refreshPorts = async () => {
+    console.log('Refreshing ports...');
+    // Wait for electronAPI to be available
+    let attempts = 0
+    const maxAttempts = 50 // Wait up to 5 seconds
+    const checkAvailability = () => {
+      if (window.electronAPI && window.electronAPI.getSerialPorts) {
+        console.log('electronAPI is available, proceeding with port refresh');
+        return true
+      } else {
+        attempts++
+        if (attempts < maxAttempts) {
+          console.log(`electronAPI not ready, attempt ${attempts}/${maxAttempts}`)
+          setTimeout(checkAvailability, 100) // Check every 100ms
+          return false
+        } else {
+          console.error('electronAPI not available after 5 seconds')
+          return false
+        }
+      }
+    }
+
+    if (!checkAvailability()) return
+
+    setIsScanning(true)
+    try {
+      console.log('Calling getSerialPorts from refresh...');
+      const ports = await window.electronAPI.getSerialPorts()
+      console.log('Received ports from refresh:', ports);
+      setAvailablePorts(ports)
+      // If there's only one port available and no port is currently selected, auto-select it
+      if (ports.length === 1 && !usbPort) {
+        setUsbPort(ports[0].path)
+      }
+    } catch (error) {
+      console.error('Failed to refresh ports:', error)
+    } finally {
+      setIsScanning(false)
+    }
+  }
   const [logFile, setLogFile] = useState(null)
   const [isRunning, setIsRunning] = useState(false)
   const [layoutLocked, setLayoutLocked] = useState(false)
@@ -267,6 +311,62 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedId, propertiesEditor.open, paletteOpen, contextMenu, layoutLocked, shapes])
 
+  // Scan for available serial ports when the app starts
+  useEffect(() => {
+    const scanPorts = async () => {
+      console.log('Starting port scan...');
+      // Wait for electronAPI to be available
+      let attempts = 0
+      const maxAttempts = 50 // Wait up to 5 seconds
+      const checkAvailability = () => {
+        if (window.electronAPI && window.electronAPI.getSerialPorts) {
+          console.log('electronAPI is available, proceeding with port scan');
+          return true
+        } else {
+          attempts++
+          if (attempts < maxAttempts) {
+            console.log(`electronAPI not ready, attempt ${attempts}/${maxAttempts}`)
+            setTimeout(checkAvailability, 100) // Check every 100ms
+            return false
+          } else {
+            console.error('electronAPI not available after 5 seconds')
+            return false
+          }
+        }
+      }
+
+      if (!checkAvailability()) return
+
+      setIsScanning(true)
+      try {
+        console.log('Calling getSerialPorts...');
+        const ports = await window.electronAPI.getSerialPorts()
+        console.log('Received ports from main process:', ports);
+        setAvailablePorts(ports)
+        // If there's only one port available, auto-select it
+        if (ports.length === 1 && !usbPort) {
+          setUsbPort(ports[0].path)
+        }
+      } catch (error) {
+        console.error('Failed to scan for serial ports:', error)
+      } finally {
+        setIsScanning(false)
+      }
+    }
+
+    scanPorts()
+  }, [])
+
+  // Handle USB port changes
+  useEffect(() => {
+    if (usbPort && window.electronAPI && window.electronAPI.connectSerialPort) {
+      window.electronAPI.connectSerialPort(usbPort, 9600)
+      // window.electronAPI.connectSerialPort(usbPort)
+    } else if (!usbPort && window.electronAPI && window.electronAPI.disconnectSerialPort) {
+      window.electronAPI.disconnectSerialPort()
+    }
+  }, [usbPort])
+
   useEffect(() => {
     const closeContextMenu = () => setContextMenu(null)
     window.addEventListener('click', closeContextMenu)
@@ -292,6 +392,9 @@ function App() {
         setIsRunning={setIsRunning}
         onOpenPalette={() => setPaletteOpen(true)}
         layoutLocked={layoutLocked}
+        availablePorts={availablePorts}
+        isScanning={isScanning}
+        onRefreshPorts={refreshPorts}
       />
       <Editor
         shapes={shapes}

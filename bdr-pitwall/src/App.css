@@ -75,6 +75,73 @@
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+.control-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #171c3d;
+  color: #d7d9e5;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.control-select:focus {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.control-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #121633;
+}
+
+.usb-port-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-button {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #171c3d;
+  color: #d7d9e5;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background: #1f2348;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.refresh-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.port-info {
+  font-size: 11px;
+  color: #8fa4d9;
+  font-style: italic;
+  margin-left: 8px;
+  padding: 4px 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+}
+
 .radio-group {
   display: flex;
   gap: 8px;

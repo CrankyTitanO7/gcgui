@@ -11,6 +11,9 @@ export default function ControlBar({
   setIsRunning,
   onOpenPalette,
   layoutLocked,
+  availablePorts = [],
+  isScanning = false,
+  onRefreshPorts,
 }) {
   const fileInputRef = useRef(null)
 
@@ -27,12 +30,6 @@ export default function ControlBar({
     setIsRunning(!isRunning)
   }
 
-  // Send USB port to main process when it changes
-  React.useEffect(() => {
-    if (window.electron && window.electron.ipcRenderer) {
-      window.electron.ipcRenderer.send('set-usb-port', usbPort);
-    }
-  }, [usbPort]);
 
   return (
     <div className="control-bar">
@@ -63,18 +60,45 @@ export default function ControlBar({
         </div>
       </div>
 
-      {/* USB Port Input for Live Data */}
+      {/* USB Port Selection for Live Data */}
       {dataSource === 'live' && (
         <div className="control-group">
           <label htmlFor="usb-port" className="control-label">USB Port:</label>
-          <input
-            id="usb-port"
-            type="text"
-            className="control-input"
-            placeholder="e.g., COM3 or /dev/ttyUSB0"
-            value={usbPort}
-            onChange={(e) => setUsbPort(e.target.value)}
-          />
+          <div className="usb-port-selector">
+            <select
+              id="usb-port"
+              className="control-select"
+              value={usbPort || ''}
+              onChange={(e) => setUsbPort(e.target.value)}
+              disabled={isScanning}
+            >
+              <option value="">-- Select a port --</option>
+              {isScanning ? (
+                <option value="">Scanning for ports...</option>
+              ) : availablePorts.length === 0 ? (
+                <option value="">No ports found</option>
+              ) : (
+                availablePorts.map((port) => (
+                  <option key={port.path} value={port.path}>
+                    {port.path} {port.manufacturer ? `(${port.manufacturer})` : ''}
+                  </option>
+                ))
+              )}
+            </select>
+            <button
+              className="refresh-button"
+              onClick={onRefreshPorts}
+              disabled={isScanning}
+              title="Refresh port list"
+            >
+              🔄
+            </button>
+          </div>
+          {usbPort && (
+            <div className="port-info">
+              Connected to: {usbPort}
+            </div>
+          )}
         </div>
       )}
 
