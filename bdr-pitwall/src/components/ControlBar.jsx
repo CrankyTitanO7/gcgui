@@ -27,6 +27,13 @@ export default function ControlBar({
     setIsRunning(!isRunning)
   }
 
+  // Send USB port to main process when it changes
+  React.useEffect(() => {
+    if (window.electron && window.electron.ipcRenderer) {
+      window.electron.ipcRenderer.send('set-usb-port', usbPort);
+    }
+  }, [usbPort]);
+
   return (
     <div className="control-bar">
       {/* Data Source Selection */}

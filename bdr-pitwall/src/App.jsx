@@ -3,6 +3,7 @@ import './App.css'
 import Editor from './components/Editor'
 import Palette from './components/Palette'
 import ControlBar from './components/ControlBar'
+import RawSerialWidget from './components/RawSerialWidget'
 import { saveConfig, loadConfig, createConfig, validateConfig, getDefaultConfig } from './utils/config'
 
 const GRID_SIZE = 28
@@ -10,6 +11,7 @@ const GRID_SIZE = 28
 const COMPONENTS = [
   { type: 'number', label: 'Number', w: 4, h: 3, defaultName: 'Number Widget', defaultField: 'speed' },
   { type: 'line-plot', label: 'Line Plot', w: 8, h: 4, defaultName: 'Line Plot Widget', defaultField: 'speed' },
+  { type: 'raw-serial', label: 'Raw Serial', w: 8, h: 6, defaultName: 'Raw Serial Widget', defaultField: '' },
 ]
 
 const SUPPORTED_TYPES = new Set(COMPONENTS.map((component) => component.type))
@@ -65,6 +67,11 @@ function renderComponent(shape) {
           </div>
           <div className="widget-field">Field: {shape.dataField || 'speed'}</div>
         </div>
+      )
+    }
+    case 'raw-serial': {
+      return (
+        <RawSerialWidget />
       )
     }
     default:
