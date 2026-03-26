@@ -5,6 +5,8 @@ export default function ControlBar({
   setDataSource,
   usbPort,
   setUsbPort,
+  baudRate,
+  setBaudRate,
   logFile,
   setLogFile,
   isRunning,
@@ -99,6 +101,26 @@ export default function ControlBar({
               Connected to: {usbPort}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Baud Rate Selection for Live Data */}
+      {dataSource === 'live' && (
+        <div className="control-group">
+          <label htmlFor="baud-rate" className="control-label">Baud Rate:</label>
+          <select
+            id="baud-rate"
+            className="control-select"
+            value={baudRate}
+            onChange={(e) => setBaudRate(parseInt(e.target.value))}
+          >
+            <option value={9600}>9600</option>
+            <option value={19200}>19200</option>
+            <option value={38400}>38400</option>
+            <option value={57600}>57600</option>
+            <option value={115200}>115200</option>
+            <option value={230400}>230400</option>
+          </select>
         </div>
       )}
 

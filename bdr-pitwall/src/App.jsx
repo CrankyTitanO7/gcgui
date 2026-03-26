@@ -98,6 +98,7 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [dataSource, setDataSource] = useState('live')
   const [usbPort, setUsbPort] = useState('')
+  const [baudRate, setBaudRate] = useState(115200)
   const [availablePorts, setAvailablePorts] = useState([])
   const [isScanning, setIsScanning] = useState(false)
 
@@ -357,15 +358,33 @@ function App() {
     scanPorts()
   }, [])
 
-  // Handle USB port changes
+  // Handle USB port and baud rate changes
   useEffect(() => {
     if (usbPort && window.electronAPI && window.electronAPI.connectSerialPort) {
-      window.electronAPI.connectSerialPort(usbPort, 9600)
-      // window.electronAPI.connectSerialPort(usbPort)
+      window.electronAPI.connectSerialPort(usbPort, baudRate)
     } else if (!usbPort && window.electronAPI && window.electronAPI.disconnectSerialPort) {
       window.electronAPI.disconnectSerialPort()
     }
-  }, [usbPort])
+  }, [usbPort, baudRate])
+
+  // Handle baud rate changes from menu
+  useEffect(() => {
+    if (window.electron && window.electron.ipcRenderer) {
+      const handleBaudRateChanged = (event, baudRate) => {
+        console.log('Baud rate changed to:', baudRate);
+        // If currently connected, reconnect with new baud rate
+        if (usbPort) {
+          window.electron.ipcRenderer.send('set-baud-rate', baudRate);
+        }
+      };
+
+      window.electron.ipcRenderer.on('baud-rate-changed', handleBaudRateChanged);
+
+      return () => {
+        window.electron.ipcRenderer.off('baud-rate-changed', handleBaudRateChanged);
+      };
+    }
+  }, [usbPort]);
 
   useEffect(() => {
     const closeContextMenu = () => setContextMenu(null)
@@ -386,6 +405,8 @@ function App() {
         setDataSource={setDataSource}
         usbPort={usbPort}
         setUsbPort={setUsbPort}
+        baudRate={baudRate}
+        setBaudRate={setBaudRate}
         logFile={logFile}
         setLogFile={setLogFile}
         isRunning={isRunning}

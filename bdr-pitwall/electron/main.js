@@ -9,6 +9,7 @@ const isDebugToolsEnabled = !app.isPackaged && process.env.ELECTRON_DEBUG_TOOLS 
 let win = null;
 let port = null;
 let parser = null;
+let currentBaudRate = 115200;
 
 // Import serial port modules at the top level
 const { SerialPort } = require('serialport');
@@ -36,9 +37,11 @@ function listSerialPorts() {
 // Function to connect to a serial port - IMPROVED VERSION
 // Function to connect to a serial port - DEBUGGED VERSION
 // Function to connect to a serial port - WITH ARDUINO RESET DELAY
-function connectToPort(portPath) {
+// Function to connect to a serial port - WITH BAUD RATE SUPPORT
+function connectToPort(portPath, baudRate = currentBaudRate) {
   console.log('========================================');
   console.log('🔌 CONNECT REQUEST:', portPath);
+  console.log('   Baud Rate:', baudRate);
   console.log('========================================');
 
   // Close existing port if open
@@ -56,7 +59,7 @@ function connectToPort(portPath) {
     console.log('📡 Creating SerialPort instance...');
     port = new SerialPort({
       path: portPath,
-      baudRate: 115200,
+      baudRate: baudRate,
       autoOpen: true
     });
 
@@ -142,6 +145,28 @@ ipcMain.on('disconnect-serial-port', () => {
   }
 });
 
+// Handle baud rate changes
+ipcMain.on('set-baud-rate', (event, baudRate) => {
+  console.log('🔧 Baud rate changed to:', baudRate);
+  currentBaudRate = baudRate;
+  
+  // If currently connected, reconnect with new baud rate
+  if (port && port.isOpen) {
+    const currentPortPath = port.path;
+    console.log('🔄 Reconnecting with new baud rate...');
+    connectToPort(currentPortPath, baudRate);
+  }
+});
+
+// Handle connect-serial-port with baud rate parameter
+ipcMain.on('connect-serial-port', (event, portPath, baudRate) => {
+  if (baudRate) {
+    connectToPort(portPath, baudRate);
+  } else {
+    connectToPort(portPath);
+  }
+});
+
 function attachDebugShortcuts(win) {
   if (!isDebugToolsEnabled) return;
 
@@ -200,8 +225,100 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
   createWindow();
+  
+  // Create custom menu with baud rate dropdown after window is created
+  const menuTemplate = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Exit',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => app.quit()
+        }
+      ]
+    },
+    {
+      label: 'Serial',
+      submenu: [
+        {
+          label: 'Baud Rate',
+          submenu: [
+            {
+              label: '9600',
+              type: 'radio',
+              checked: currentBaudRate === 9600,
+              click: () => {
+                currentBaudRate = 9600;
+                if (win && win.webContents) {
+                  win.webContents.send('baud-rate-changed', 9600);
+                }
+              }
+            },
+            {
+              label: '19200',
+              type: 'radio',
+              checked: currentBaudRate === 19200,
+              click: () => {
+                currentBaudRate = 19200;
+                if (win && win.webContents) {
+                  win.webContents.send('baud-rate-changed', 19200);
+                }
+              }
+            },
+            {
+              label: '38400',
+              type: 'radio',
+              checked: currentBaudRate === 38400,
+              click: () => {
+                currentBaudRate = 38400;
+                if (win && win.webContents) {
+                  win.webContents.send('baud-rate-changed', 38400);
+                }
+              }
+            },
+            {
+              label: '57600',
+              type: 'radio',
+              checked: currentBaudRate === 57600,
+              click: () => {
+                currentBaudRate = 57600;
+                if (win && win.webContents) {
+                  win.webContents.send('baud-rate-changed', 57600);
+                }
+              }
+            },
+            {
+              label: '115200',
+              type: 'radio',
+              checked: currentBaudRate === 115200,
+              click: () => {
+                currentBaudRate = 115200;
+                if (win && win.webContents) {
+                  win.webContents.send('baud-rate-changed', 115200);
+                }
+              }
+            },
+            {
+              label: '230400',
+              type: 'radio',
+              checked: currentBaudRate === 230400,
+              click: () => {
+                currentBaudRate = 230400;
+                if (win && win.webContents) {
+                  win.webContents.send('baud-rate-changed', 230400);
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
 });
 
 app.on('window-all-closed', () => {
