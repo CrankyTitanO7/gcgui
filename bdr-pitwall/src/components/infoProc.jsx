@@ -127,139 +127,96 @@ const useCANData = () => {
 
   // Parse CAN Log Format messages
   const parseCANMessage = (rawMessage) => {
-    try {
-      console.log('Parsing message:', rawMessage);
-      
-      // Support multiple CAN message formats:
-      // Format 1: CRTD CAN Log Format: [timestamp] [ID] [DLC] [DataBytes]
-      // Example: "[16:30:45.123] 0x100 8 12 34 56 78 9A BC DE F0"
-      // Format 2: Your format: [timestamp] [identifier] [ID] [DLC] [DataBytes]
-      // Example: "1711360000.120000 R11 100 04 9E 5B 5A 2B 00 00 00"
-      
-      const message = rawMessage.trim();
-      
-      // Skip if not a CAN message (should have ID and data)
-      if (!message) return null;
+  try {
+    const message = rawMessage.trim();
+    // Skip CRTD header/comment lines
+    if (!message || message.startsWith('CXX')) return null;
 
-      let timestamp = new Date().toISOString();
-      let id = null;
-      let dlc = 0;
-      let dataBytes = [];
-      let dataPart = message;
+    let dataPart = message;
+    let timestamp = new Date().toISOString();
 
-      // Try to extract timestamp (Unix timestamp format)
-      const unixTimestampMatch = message.match(/^(\d+\.\d+)\s+/);
-      if (unixTimestampMatch) {
-        timestamp = unixTimestampMatch[1];
-        dataPart = message.replace(/^\d+\.\d+\s+/, '');
-        console.log('Extracted timestamp:', timestamp);
-      }
+    // Extract unix timestamp
+    const tsMatch = message.match(/^(\d+\.\d+)\s+/);
+    if (tsMatch) {
+      timestamp = tsMatch[1];
+      dataPart = message.slice(tsMatch[0].length);
+    }
 
-      // Parse the remaining parts
-      const parts = dataPart.trim().split(/\s+/);
-      console.log('Parts after timestamp removal:', parts);
-      
-      if (parts.length < 3) return null;
+    const parts = dataPart.trim().split(/\s+/);
+    if (parts.length < 2) return null;
 
-      // Handle different formats
-      let startIndex = 0;
-      
-      // If first part looks like an identifier (e.g., "R11"), skip it
-      if (parts[0] && /^[A-Z]\d{1,2}$/.test(parts[0])) {
-        startIndex = 1; // Skip the identifier part
-        console.log('Skipping identifier:', parts[0]);
-      }
+    let startIndex = 0;
 
-      // Extract ID (with or without 0x prefix)
-      id = parts[startIndex];
-      if (!id.startsWith('0x')) {
-        id = '0x' + id; // Add 0x prefix if missing
-      }
-      console.log('Extracted ID:', id);
+    // Skip bus/direction/bit-length token e.g. "1R11", "2R29", "R11"
+    if (/^\d?[RT]\d{2}$/.test(parts[0])) {
+      startIndex = 1;
+    }
 
-      // Extract DLC
-      dlc = parseInt(parts[startIndex + 1]);
-      console.log('Extracted DLC:', dlc);
-      
-      // Extract data bytes (from remaining parts)
-      dataBytes = parts.slice(startIndex + 2);
-      console.log('Extracted data bytes:', dataBytes);
+    // FIX 1: Normalize ID — strip leading zeros so "020" → "0x20"
+    const rawId = parts[startIndex];
+    const idNum = parseInt(rawId, 16);
+    if (isNaN(idNum)) return null;
+    const id = '0x' + idNum.toString(16); // "0x20", "0x21", etc.
 
-      // Validate message
-      if (!CAN_MESSAGE_TYPES[id] || dataBytes.length === 0) {
-        console.warn('Unknown or malformed CAN message:', message);
-        return null;
-      }
+    // FIX 2: No DLC in CRTD — everything after the ID is data bytes
+    const dataBytes = parts.slice(startIndex + 1);
 
-      const messageConfig = CAN_MESSAGE_TYPES[id];
-      const parsedData = {
-        id: id,
-        name: messageConfig.name,
-        timestamp: timestamp,
-        dlc: dlc,
-        dataBytes: dataBytes,
-        fields: {}
-      };
-
-      // Parse data bytes according to message type
-      const dataBuffer = new Uint8Array(dataBytes.map(byte => parseInt(byte, 16)));
-      console.log('Data buffer:', dataBuffer);
-      
-      // Parse each field based on its byte specification
-      messageConfig.fields.forEach(field => {
-        const fieldName = field;
-        
-        // Get encoding information for this field
-        const encoding = messageConfig.encoding[fieldName];
-        if (!encoding) {
-          console.log(`Field ${fieldName}: No encoding information found`);
-          parsedData.fields[fieldName] = {
-            value: null,
-            unit: '',
-            raw: null
-          };
-          return;
-        }
-
-        const { bytes, scale, unit } = encoding;
-        
-        // Check if we have enough data for this field
-        if (bytes && bytes.length > 0) {
-          let value = 0;
-          
-          // Extract the value based on byte positions
-          bytes.forEach(bytePos => {
-            if (bytePos < dataBuffer.length) {
-              value = (value << 8) | dataBuffer[bytePos];
-            }
-          });
-          
-          // Apply scaling
-          const scaledValue = value * scale;
-          
-          console.log(`Field ${fieldName}: raw=${value}, scaled=${scaledValue}, unit=${unit}`);
-          parsedData.fields[fieldName] = {
-            value: scaledValue,
-            unit: unit,
-            raw: value
-          };
-        } else {
-          console.log(`Field ${fieldName}: No byte specification found`);
-          parsedData.fields[fieldName] = {
-            value: null,
-            unit: unit || '',
-            raw: null
-          };
-        }
-      });
-
-      console.log('Final parsed data:', parsedData);
-      return parsedData;
-    } catch (error) {
-      console.error('Error parsing CAN message:', error, rawMessage);
+    if (!CAN_MESSAGE_TYPES[id] || dataBytes.length === 0) {
+      console.warn('Unknown CAN ID:', id);
       return null;
     }
-  };
+
+    const messageConfig = CAN_MESSAGE_TYPES[id];
+    const dataBuffer = new Uint8Array(dataBytes.map(b => parseInt(b, 16)));
+
+    const parsedData = {
+      id,
+      name: messageConfig.name,
+      timestamp,
+      dataBytes,
+      fields: {}
+    };
+
+    messageConfig.fields.forEach(fieldName => {
+      const encoding = messageConfig.encoding[fieldName];
+      if (!encoding) {
+        parsedData.fields[fieldName] = { value: null, unit: '', raw: null };
+        return;
+      }
+
+      const { bytes, type, scale, unit } = encoding;
+
+      // Check all required bytes are present
+      if (!bytes || bytes.length === 0 || Math.max(...bytes) >= dataBuffer.length) {
+        parsedData.fields[fieldName] = { value: null, unit, raw: null };
+        return;
+      }
+
+      // Read raw unsigned value from byte positions (avoid bitwise to stay >32-bit safe)
+      let raw = 0;
+      bytes.forEach(pos => { raw = raw * 256 + dataBuffer[pos]; });
+
+      // FIX 3: Convert to signed based on type
+      let signed = raw;
+      if (type === 'int32be' && raw >= 0x80000000) {
+        signed = raw - 0x100000000;
+      } else if (type === 'int16be' && raw >= 0x8000) {
+        signed = raw - 0x10000;
+      } else if (type === 'int8' && raw >= 0x80) {
+        signed = raw - 0x100;
+      }
+
+      const value = Math.round(signed * scale * 100) / 100;
+      parsedData.fields[fieldName] = { value, unit, raw };
+    });
+
+    return parsedData;
+
+  } catch (error) {
+    console.error('Error parsing CAN message:', error, rawMessage);
+    return null;
+  }
+};
 
   // Handle incoming serial data
   const handleSerialData = (data) => {
