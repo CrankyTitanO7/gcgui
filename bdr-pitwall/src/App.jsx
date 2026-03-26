@@ -4,6 +4,7 @@ import Editor from './components/Editor'
 import Palette from './components/Palette'
 import ControlBar from './components/ControlBar'
 import RawSerialWidget from './components/RawSerialWidget'
+import { InfoProcProvider, CANDataDebugger, useCANDataHook } from './components/infoProc'
 import { saveConfig, loadConfig, createConfig, validateConfig, getDefaultConfig } from './utils/config'
 
 const GRID_SIZE = 28
@@ -12,6 +13,7 @@ const COMPONENTS = [
   { type: 'number', label: 'Number', w: 4, h: 3, defaultName: 'Number Widget', defaultField: 'speed' },
   { type: 'line-plot', label: 'Line Plot', w: 8, h: 4, defaultName: 'Line Plot Widget', defaultField: 'speed' },
   { type: 'raw-serial', label: 'Raw Serial', w: 8, h: 6, defaultName: 'Raw Serial Widget', defaultField: '' },
+  { type: 'can-data', label: 'CAN Data', w: 10, h: 6, defaultName: 'CAN Data Widget', defaultField: '' },
 ]
 
 const SUPPORTED_TYPES = new Set(COMPONENTS.map((component) => component.type))
@@ -33,17 +35,75 @@ function getSeriesFromField(field, points = 16) {
   })
 }
 
+function NumberWidget({ shape }) {
+  const { canData } = useCANDataHook();
+  const [selectedField, setSelectedField] = useState(shape.dataField || 'RPM');
+
+  // Debug logging
+  console.log('NumberWidget render - canData:', canData);
+  console.log('NumberWidget render - selectedField:', selectedField);
+
+  // Get all available fields from all CAN messages
+  const allFields = [];
+  Object.values(canData).forEach(message => {
+    console.log('Processing message:', message);
+    if (message && message.fields) {
+      Object.keys(message.fields).forEach(field => {
+        console.log('Found field:', field, 'value:', message.fields[field]);
+        if (!allFields.includes(field)) {
+          allFields.push(field);
+        }
+      });
+    }
+  });
+
+  // Get current value for selected field
+  let currentValue = 'N/A';
+  Object.values(canData).forEach(message => {
+    if (message && message.fields && message.fields[selectedField] !== null && message.fields[selectedField] !== undefined) {
+      currentValue = message.fields[selectedField];
+      console.log('Found value for', selectedField, ':', currentValue);
+    }
+  });
+
+  // If no fields available, use a default set
+  const availableFields = allFields.length > 0 ? allFields : ['RPM', 'Throttle', 'EngineTemp', 'OilPressure', 'Voltage', 'Current', 'Temperature', 'SOC'];
+
+  return (
+    <div className="number-widget fill">
+      <div className="widget-name">{shape.name || 'Number Widget'}</div>
+      <div className="number-widget-value">{currentValue}</div>
+      <div className="widget-controls">
+        <label htmlFor={`field-select-${shape.id}`} style={{ fontSize: '11px', color: '#888', marginBottom: '4px', display: 'block' }}>
+          Select Field:
+        </label>
+        <select
+          id={`field-select-${shape.id}`}
+          value={selectedField}
+          onChange={(e) => setSelectedField(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '6px 8px',
+            borderRadius: '6px',
+            border: '1px solid #444',
+            background: '#2a2a2a',
+            color: '#fff',
+            fontSize: '12px'
+          }}
+        >
+          {availableFields.map(field => (
+            <option key={field} value={field}>{field}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function renderComponent(shape) {
   switch (shape.type) {
     case 'number': {
-      const value = Math.round(getSeriesFromField(shape.dataField, 1)[0])
-      return (
-        <div className="number-widget fill">
-          <div className="widget-name">{shape.name || 'Number Widget'}</div>
-          <div className="number-widget-value">{value}</div>
-          <div className="widget-field">Field: {shape.dataField || 'speed'}</div>
-        </div>
-      )
+      return <NumberWidget shape={shape} />;
     }
     case 'line-plot': {
       const data = getSeriesFromField(shape.dataField)
@@ -72,6 +132,11 @@ function renderComponent(shape) {
     case 'raw-serial': {
       return (
         <RawSerialWidget />
+      )
+    }
+    case 'can-data': {
+      return (
+        <CANDataDebugger />
       )
     }
     default:
@@ -399,136 +464,139 @@ function App() {
   }, [])
 
   return (
-    <div className="app-shell" onClick={() => setContextMenu(null)}>
-      <ControlBar
-        dataSource={dataSource}
-        setDataSource={setDataSource}
-        usbPort={usbPort}
-        setUsbPort={setUsbPort}
-        baudRate={baudRate}
-        setBaudRate={setBaudRate}
-        logFile={logFile}
-        setLogFile={setLogFile}
-        isRunning={isRunning}
-        setIsRunning={setIsRunning}
-        onOpenPalette={() => setPaletteOpen(true)}
-        layoutLocked={layoutLocked}
-        availablePorts={availablePorts}
-        isScanning={isScanning}
-        onRefreshPorts={refreshPorts}
-      />
-      <Editor
-        shapes={shapes}
-        onUpdateShape={onUpdateShape}
-        onSelectShape={setSelectedId}
-        onOpenShapeMenu={({ id, x, y }) => {
-          setContextMenu({ shapeId: id, x, y })
-        }}
-        selectedId={selectedId}
-        panX={panX}
-        setPanX={setPanX}
-        panY={panY}
-        setPanY={setPanY}
-        gridSize={GRID_SIZE}
-        zoom={zoom}
-        setZoom={setZoom}
-        renderShape={(shape) => renderComponent(shape)}
-      />
-      <Palette
-        components={COMPONENTS}
-        onAdd={addShape}
-        onDelete={deleteSelected}
-        onSave={saveConfiguration}
-        onLoad={loadConfiguration}
-        onReset={resetConfiguration}
-        hasSelection={Boolean(selectedId)}
-        isOpen={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        isLocked={layoutLocked}
-        onToggleLayoutLock={() => setLayoutLocked((v) => !v)}
-      />
+    <InfoProcProvider>
+      <div className="app-shell" onClick={() => setContextMenu(null)}>
+        <ControlBar
+          dataSource={dataSource}
+          setDataSource={setDataSource}
+          usbPort={usbPort}
+          setUsbPort={setUsbPort}
+          baudRate={baudRate}
+          setBaudRate={setBaudRate}
+          logFile={logFile}
+          setLogFile={setLogFile}
+          isRunning={isRunning}
+          setIsRunning={setIsRunning}
+          onOpenPalette={() => setPaletteOpen(true)}
+          layoutLocked={layoutLocked}
+          availablePorts={availablePorts}
+          isScanning={isScanning}
+          onRefreshPorts={refreshPorts}
+        />
+        <Editor
+          shapes={shapes}
+          onUpdateShape={onUpdateShape}
+          onSelectShape={setSelectedId}
+          onOpenShapeMenu={({ id, x, y }) => {
+            setContextMenu({ shapeId: id, x, y })
+          }}
+          selectedId={selectedId}
+          panX={panX}
+          setPanX={setPanX}
+          panY={panY}
+          setPanY={setPanY}
+          gridSize={GRID_SIZE}
+          zoom={zoom}
+          setZoom={setZoom}
+          renderShape={(shape) => renderComponent(shape)}
+        />
+        <Palette
+          components={COMPONENTS}
+          onAdd={addShape}
+          onDelete={deleteSelected}
+          onSave={saveConfiguration}
+          onLoad={loadConfiguration}
+          onReset={resetConfiguration}
+          hasSelection={Boolean(selectedId)}
+          isOpen={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          isLocked={layoutLocked}
+          onToggleLayoutLock={() => setLayoutLocked((v) => !v)}
+        />
 
-      {contextMenu && (
-        <div
-          className="widget-context-menu"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <button
-            className="widget-context-option"
-            onClick={() => {
-              openPropertiesEditor(contextMenu.shapeId)
-              setContextMenu(null)
-            }}
-            disabled={layoutLocked}
-          >
-            Edit
-          </button>
-          <button
-            className="widget-context-option danger"
-            onClick={() => {
-              deleteShape(contextMenu.shapeId)
-              setContextMenu(null)
-            }}
-            disabled={layoutLocked}
-          >
-            Delete
-          </button>
-        </div>
-      )}
 
-      {propertiesEditor.open && (
-        <div className="properties-overlay" onClick={closePropertiesEditor}>
-          <div className="properties-modal" onClick={(event) => event.stopPropagation()}>
-            <h3>Widget Properties</h3>
-            <form
-              className="properties-form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                applyPropertiesEditorChanges()
+        {contextMenu && (
+          <div
+            className="widget-context-menu"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="widget-context-option"
+              onClick={() => {
+                openPropertiesEditor(contextMenu.shapeId)
+                setContextMenu(null)
               }}
+              disabled={layoutLocked}
             >
-              <label htmlFor="widget-name">Name</label>
-              <input
-                id="widget-name"
-                type="text"
-                value={propertiesEditor.name}
-                onChange={(event) =>
-                  setPropertiesEditor((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                placeholder="Widget name"
-              />
-
-              <label htmlFor="widget-data-field">Data Field</label>
-              <input
-                id="widget-data-field"
-                type="text"
-                value={propertiesEditor.dataField}
-                onChange={(event) =>
-                  setPropertiesEditor((current) => ({
-                    ...current,
-                    dataField: event.target.value,
-                  }))
-                }
-                placeholder="Data field"
-              />
-
-              <div className="properties-actions">
-                <button type="button" className="secondary" onClick={closePropertiesEditor}>
-                  Cancel
-                </button>
-                <button type="submit" className="primary">
-                  Save
-                </button>
-              </div>
-            </form>
+              Edit
+            </button>
+            <button
+              className="widget-context-option danger"
+              onClick={() => {
+                deleteShape(contextMenu.shapeId)
+                setContextMenu(null)
+              }}
+              disabled={layoutLocked}
+            >
+              Delete
+            </button>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {propertiesEditor.open && (
+          <div className="properties-overlay" onClick={closePropertiesEditor}>
+            <div className="properties-modal" onClick={(event) => event.stopPropagation()}>
+              <h3>Widget Properties</h3>
+              <form
+                className="properties-form"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  applyPropertiesEditorChanges()
+                }}
+              >
+                <label htmlFor="widget-name">Name</label>
+                <input
+                  id="widget-name"
+                  type="text"
+                  value={propertiesEditor.name}
+                  onChange={(event) =>
+                    setPropertiesEditor((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                  placeholder="Widget name"
+                />
+
+                <label htmlFor="widget-data-field">Data Field</label>
+                <input
+                  id="widget-data-field"
+                  type="text"
+                  value={propertiesEditor.dataField}
+                  onChange={(event) =>
+                    setPropertiesEditor((current) => ({
+                      ...current,
+                      dataField: event.target.value,
+                    }))
+                  }
+                  placeholder="Data field"
+                />
+
+                <div className="properties-actions">
+                  <button type="button" className="secondary" onClick={closePropertiesEditor}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary">
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </InfoProcProvider>
   )
 }
 
