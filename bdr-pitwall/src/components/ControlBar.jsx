@@ -107,10 +107,10 @@ export default function ControlBar({
       {/* Baud Rate Selection for Live Data */}
       {dataSource === 'live' && (
         <div className="control-group">
-          <label htmlFor="baud-rate" className="control-label">Baud Rate:</label>
+          <label htmlFor="baud-rate" className="control-label">Baud Rate (beta):</label>
           <select
             id="baud-rate"
-            className="control-select"
+            className="control-select control-select-narrow"
             value={baudRate}
             onChange={(e) => setBaudRate(parseInt(e.target.value))}
           >

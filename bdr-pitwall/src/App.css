@@ -99,6 +99,11 @@
   background: #121633;
 }
 
+.control-select-narrow {
+  min-width: 120px;
+  max-width: 140px;
+}
+
 .usb-port-selector {
   display: flex;
   align-items: center;
