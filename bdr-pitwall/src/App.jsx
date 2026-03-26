@@ -100,34 +100,160 @@ function NumberWidget({ shape }) {
   );
 }
 
+function LinePlotWidget({ shape }) {
+  const { canData } = useCANDataHook();
+  const [selectedField, setSelectedField] = useState(shape.dataField || 'RPM');
+  const [dataPoints, setDataPoints] = useState([]);
+
+  // Get all available fields from all CAN messages
+  const allFields = [];
+  Object.values(canData).forEach(message => {
+    if (message && message.fields) {
+      Object.keys(message.fields).forEach(field => {
+        if (!allFields.includes(field)) {
+          allFields.push(field);
+        }
+      });
+    }
+  });
+
+  // Update data points when new CAN data arrives
+  useEffect(() => {
+    let currentValue = null;
+    
+    // Find current value for selected field
+    Object.values(canData).forEach(message => {
+      if (message && message.fields && message.fields[selectedField] !== null && message.fields[selectedField] !== undefined) {
+        currentValue = message.fields[selectedField];
+      }
+    });
+
+    if (currentValue !== null) {
+      setDataPoints(prev => {
+        const newData = [...prev, currentValue];
+        // Keep only last 16 points
+        return newData.slice(-16);
+      });
+    }
+  }, [canData, selectedField]);
+
+  // Generate SVG points for the line plot
+  const generatePoints = (data) => {
+    if (data.length === 0) return '';
+    
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+    const points = data
+      .map((point, index) => {
+        const x = (index / Math.max(data.length - 1, 1)) * 100
+        const y = max === min ? 50 : 100 - ((point - min) / (max - min)) * 100
+        return `${x},${y}`
+      })
+      .join(' ')
+    
+    return points;
+  };
+
+  // Generate gridlines with labels
+  const generateGridlines = () => {
+    const elements = [];
+    const data = dataPoints.length > 0 ? dataPoints : [0];
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+    
+    // Vertical gridlines (time axis) - no labels
+    for (let i = 0; i <= 10; i++) {
+      const x = (i / 10) * 100;
+      elements.push(<line key={`v-${i}`} x1={x} y1="0" x2={x} y2="100" className="gridline" />);
+    }
+    
+    // Horizontal gridlines (value axis) with small labels
+    for (let i = 0; i <= 10; i++) {
+      const y = (i / 10) * 100;
+      elements.push(<line key={`h-${i}`} x1="0" y1={y} x2="100" y2={y} className="gridline" />);
+      
+      // Add value labels on left side
+      if (max !== min) {
+        const value = min + (max - min) * (1 - i / 10);
+        elements.push(
+          <text 
+            key={`h-label-${i}`} 
+            x="2" 
+            y={y + 3} 
+            className="gridlabel"
+            fontSize="4"
+            fill="#666"
+          >
+            {Math.round(value)}
+          </text>
+        );
+      } else if (i === 5) {
+        // If all values are the same, show the value in the middle
+        elements.push(
+          <text 
+            key={`h-label-center`} 
+            x="2" 
+            y={y + 3} 
+            className="gridlabel"
+            fontSize="4"
+            fill="#666"
+          >
+            {Math.round(max)}
+          </text>
+        );
+      }
+    }
+    return elements;
+  };
+
+  const points = generatePoints(dataPoints);
+  const currentValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1] : 'N/A';
+  const label = selectedField ? `${selectedField}:` : 'Value:';
+
+  return (
+    <div className="line-widget fill">
+      <div className="widget-name">{shape.name || 'Line Plot Widget'}</div>
+      <div className="line-widget-canvas">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="line-plot-svg">
+          {generateGridlines()}
+          <polyline points={points} className="line-plot-path" />
+        </svg>
+      </div>
+      <div className="widget-controls">
+        <label htmlFor={`line-field-select-${shape.id}`} style={{ fontSize: '11px', color: '#888', marginBottom: '4px', display: 'block' }}>
+          Select Field:
+        </label>
+        <select
+          id={`line-field-select-${shape.id}`}
+          value={selectedField}
+          onChange={(e) => setSelectedField(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '6px 8px',
+            borderRadius: '6px',
+            border: '1px solid #444',
+            background: '#2a2a2a',
+            color: '#fff',
+            fontSize: '12px'
+          }}
+        >
+          {allFields.map(field => (
+            <option key={field} value={field}>{field}</option>
+          ))}
+        </select>
+      </div>
+      <div className="widget-field">{label} {currentValue}</div>
+    </div>
+  );
+}
+
 function renderComponent(shape) {
   switch (shape.type) {
     case 'number': {
       return <NumberWidget shape={shape} />;
     }
     case 'line-plot': {
-      const data = getSeriesFromField(shape.dataField)
-      const max = Math.max(...data)
-      const min = Math.min(...data)
-      const points = data
-        .map((point, index) => {
-          const x = (index / Math.max(data.length - 1, 1)) * 100
-          const y = max === min ? 50 : 100 - ((point - min) / (max - min)) * 100
-          return `${x},${y}`
-        })
-        .join(' ')
-
-      return (
-        <div className="line-widget fill">
-          <div className="widget-name">{shape.name || 'Line Plot Widget'}</div>
-          <div className="line-widget-canvas">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="line-plot-svg">
-              <polyline points={points} className="line-plot-path" />
-            </svg>
-          </div>
-          <div className="widget-field">Field: {shape.dataField || 'speed'}</div>
-        </div>
-      )
+      return <LinePlotWidget shape={shape} />;
     }
     case 'raw-serial': {
       return (
