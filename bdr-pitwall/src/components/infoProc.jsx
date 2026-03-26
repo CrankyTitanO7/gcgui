@@ -3,12 +3,44 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 // Global context for CAN data
 export const CANDataContext = createContext();
 
-// CAN message types and their field mappings HARDCODED
+// CAN message types and their field mappings with byte specifications
 // const CAN_MESSAGE_TYPES = {
-//   '0x100': { name: 'EngineData', fields: ['RPM', 'Throttle', 'EngineTemp', 'OilPressure'] },
-//   '0x200': { name: 'BatteryData', fields: ['Voltage', 'Current', 'Temperature', 'SOC'] },
-//   '0x300': { name: 'SpeedData', fields: ['Speed', 'Gear', 'Distance', 'TripTime'] },
-//   '0x400': { name: 'SensorData', fields: ['Pressure', 'FlowRate', 'Level', 'Status'] }
+//   '0x100': { 
+//     name: 'EngineData', 
+//     fields: [
+//       { name: 'RPM', bytes: 2, offset: 0, scale: 1, unit: 'RPM' },
+//       { name: 'Throttle', bytes: 1, offset: 2, scale: 1, unit: '%' },
+//       { name: 'EngineTemp', bytes: 1, offset: 3, scale: 1, unit: '°C' },
+//       { name: 'OilPressure', bytes: 1, offset: 4, scale: 0.1, unit: 'psi' }
+//     ]
+//   },
+//   '0x200': { 
+//     name: 'BatteryData', 
+//     fields: [
+//       { name: 'Voltage', bytes: 2, offset: 0, scale: 0.1, unit: 'V' },
+//       { name: 'Current', bytes: 2, offset: 2, scale: 0.1, unit: 'A' },
+//       { name: 'Temperature', bytes: 1, offset: 4, scale: 1, unit: '°C' },
+//       { name: 'SOC', bytes: 1, offset: 5, scale: 1, unit: '%' }
+//     ]
+//   },
+//   '0x300': { 
+//     name: 'SpeedData', 
+//     fields: [
+//       { name: 'Speed', bytes: 2, offset: 0, scale: 0.1, unit: 'km/h' },
+//       { name: 'Gear', bytes: 1, offset: 2, scale: 1, unit: '' },
+//       { name: 'Distance', bytes: 2, offset: 3, scale: 1, unit: 'km' },
+//       { name: 'TripTime', bytes: 1, offset: 5, scale: 1, unit: 'min' }
+//     ]
+//   },
+//   '0x400': { 
+//     name: 'SensorData', 
+//     fields: [
+//       { name: 'Pressure', bytes: 2, offset: 0, scale: 0.01, unit: 'bar' },
+//       { name: 'FlowRate', bytes: 2, offset: 2, scale: 0.1, unit: 'L/min' },
+//       { name: 'Level', bytes: 1, offset: 4, scale: 1, unit: '%' },
+//       { name: 'Status', bytes: 1, offset: 5, scale: 1, unit: '' }
+//     ]
+//   }
 // };
 
 const CAN_MESSAGE_TYPES = {
@@ -16,8 +48,8 @@ const CAN_MESSAGE_TYPES = {
     name: 'GeneralData1',
     fields: ['ERPM', 'DutyCycle', 'InputVoltage'],
     encoding: {
-      ERPM:         { bytes: [0,1,2,3], type: 'int32be',  scale: 1,   unit: 'ERPM', note: 'Motor RPM × pole pairs' },
-      DutyCycle:    { bytes: [4,5],     type: 'int16be',  scale: 0.1, unit: '%',    note: '+ running, − regen' },
+      ERPM:         { bytes: [0,1,2,3], type: 'int32be',  scale: 1,   unit: 'ERPM', note: 'Motor RPM * pole pairs' },
+      DutyCycle:    { bytes: [4,5],     type: 'int16be',  scale: 0.1, unit: '%',    note: '+ running, - regen' },
       InputVoltage: { bytes: [6,7],     type: 'int16be',  scale: 1,   unit: 'V',    note: 'DC bus voltage' }
     }
   },
@@ -25,8 +57,8 @@ const CAN_MESSAGE_TYPES = {
     name: 'GeneralData2',
     fields: ['ACCurrent', 'DCCurrent'],
     encoding: {
-      ACCurrent: { bytes: [0,1],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, − regen' },
-      DCCurrent: { bytes: [2,3],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, − regen' },
+      ACCurrent: { bytes: [0,1],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
+      DCCurrent: { bytes: [2,3],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
       // bytes [4–7]: reserved, filled with 0xFF
     }
   },
@@ -52,10 +84,10 @@ const CAN_MESSAGE_TYPES = {
     name: 'GeneralData5',
     fields: ['Throttle', 'Brake', 'DigitalInputs', 'DigitalOutputs', 'DriveEnable', 'LimitFlags', 'CANMapVersion'],
     encoding: {
-      Throttle:       { bytes: [0],    type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; −128 to 127' },
-      Brake:          { bytes: [1],    type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; −128 to 127' },
-      DigitalInputs:  { bytes: [2],    type: 'uint8',  scale: 1, unit: '#', note: 'Bits 0–3: DI1–DI4 (1 = active)' },
-      DigitalOutputs: { bytes: [2],    type: 'uint8',  scale: 1, unit: '#', note: 'Bits 4–7: DO1–DO4 (1 = active)' },
+      Throttle:       { bytes: [0],    type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; -128 to 127' },
+      Brake:          { bytes: [1],    type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; -128 to 127' },
+      DigitalInputs:  { bytes: [2],    type: 'uint8',  scale: 1, unit: '#', note: 'Bits 0-3: DI1-DI4 (1 = active)' },
+      DigitalOutputs: { bytes: [2],    type: 'uint8',  scale: 1, unit: '#', note: 'Bits 4-7: DO1-DO4 (1 = active)' },
       DriveEnable:    { bytes: [3],    type: 'uint8',  scale: 1, unit: '#', note: 'Bit 0: 1 = drive enabled' },
       LimitFlags:     { bytes: [4,5],  type: 'uint16', scale: 1, unit: '#', note: 'Bits: CapTemp/DCLim/DriveEnLim/IGBTAccel/IGBTTemp/VinLim/MtrAccelTemp/MtrTemp/RPMMin/RPMMax/PowerLim' },
       // byte [6]: reserved 0xFF
@@ -173,15 +205,51 @@ const useCANData = () => {
       const dataBuffer = new Uint8Array(dataBytes.map(byte => parseInt(byte, 16)));
       console.log('Data buffer:', dataBuffer);
       
-      // Map fields based on message type
-      messageConfig.fields.forEach((field, index) => {
-        if (index < dataBuffer.length) {
-          // Convert hex byte to decimal value
-          const value = dataBuffer[index];
-          console.log(`Field ${field} (index ${index}): ${value}`);
-          parsedData.fields[field] = value;
+      // Parse each field based on its byte specification
+      messageConfig.fields.forEach(field => {
+        const fieldName = field;
+        
+        // Get encoding information for this field
+        const encoding = messageConfig.encoding[fieldName];
+        if (!encoding) {
+          console.log(`Field ${fieldName}: No encoding information found`);
+          parsedData.fields[fieldName] = {
+            value: null,
+            unit: '',
+            raw: null
+          };
+          return;
+        }
+
+        const { bytes, scale, unit } = encoding;
+        
+        // Check if we have enough data for this field
+        if (bytes && bytes.length > 0) {
+          let value = 0;
+          
+          // Extract the value based on byte positions
+          bytes.forEach(bytePos => {
+            if (bytePos < dataBuffer.length) {
+              value = (value << 8) | dataBuffer[bytePos];
+            }
+          });
+          
+          // Apply scaling
+          const scaledValue = value * scale;
+          
+          console.log(`Field ${fieldName}: raw=${value}, scaled=${scaledValue}, unit=${unit}`);
+          parsedData.fields[fieldName] = {
+            value: scaledValue,
+            unit: unit,
+            raw: value
+          };
         } else {
-          console.log(`Field ${field} (index ${index}): No data available`);
+          console.log(`Field ${fieldName}: No byte specification found`);
+          parsedData.fields[fieldName] = {
+            value: null,
+            unit: unit || '',
+            raw: null
+          };
         }
       });
 
@@ -274,6 +342,20 @@ export const useCANDataHook = () => {
 // Debug component to display parsed CAN data
 export const CANDataDebugger = () => {
   const { canData, lastUpdate, connectionStatus, CAN_MESSAGE_TYPES } = useCANDataHook();
+  const [hoveredField, setHoveredField] = useState(null);
+
+  const handleFieldHover = (fieldName, encoding) => {
+    setHoveredField({
+      fieldName,
+      note: encoding ? encoding.note : '',
+      type: encoding ? encoding.type : '',
+      bytes: encoding ? encoding.bytes : []
+    });
+  };
+
+  const handleFieldLeave = () => {
+    setHoveredField(null);
+  };
 
   return (
     <div className="can-data-debugger" style={{
@@ -284,7 +366,8 @@ export const CANDataDebugger = () => {
       color: '#fff',
       fontFamily: 'monospace',
       fontSize: '12px',
-      margin: '10px 0'
+      margin: '10px 0',
+      position: 'relative'
     }}>
       <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#4caf50' }}>
         CAN Data Parser (β)
@@ -303,6 +386,8 @@ export const CANDataDebugger = () => {
         const message = canData[id];
         if (!message) return null;
 
+        const messageConfig = CAN_MESSAGE_TYPES[id];
+
         return (
           <div key={id} style={{ marginBottom: '15px', border: '1px solid #444', borderRadius: '4px', padding: '8px' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#2196f3' }}>
@@ -314,25 +399,154 @@ export const CANDataDebugger = () => {
               )}
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '5px' }}>
-              {Object.keys(message.fields).map(fieldName => (
-                <div key={fieldName} style={{ 
-                  background: '#2a2a2a', 
-                  padding: '4px', 
-                  borderRadius: '3px',
-                  display: 'flex',
-                  justifyContent: 'space-between'
-                }}>
-                  <span style={{ color: '#aaa' }}>{fieldName}:</span>
-                  <span style={{ color: message.fields[fieldName] !== null ? '#fff' : '#666' }}>
-                    {message.fields[fieldName] !== null ? message.fields[fieldName] : 'N/A'}
-                  </span>
-                </div>
-              ))}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(3, 1fr)', 
+              gap: '3px',
+              maxHeight: '350px',
+              overflow: 'auto',
+              paddingRight: '4px'
+            }}>
+              {messageConfig.fields.map(fieldName => {
+                const fieldData = message.fields[fieldName];
+                const encoding = messageConfig.encoding[fieldName];
+                const unit = encoding ? encoding.unit : '';
+                const scale = encoding ? encoding.scale : 1;
+                const rawValue = fieldData && fieldData.raw !== null ? fieldData.raw : null;
+                const scaledValue = fieldData && fieldData.value !== null ? fieldData.value : null;
+                
+                return (
+                  <div 
+                    key={fieldName} 
+                    style={{ 
+                      background: '#2a2a2a', 
+                      padding: '4px', 
+                      borderRadius: '3px',
+                      cursor: encoding && encoding.note ? 'help' : 'default',
+                      position: 'relative',
+                      minHeight: '35px',
+                      fontSize: '10px' // Further reduced base font size
+                    }}
+                    onMouseEnter={() => encoding && encoding.note && handleFieldHover(fieldName, encoding)}
+                    onMouseLeave={handleFieldLeave}
+                  >
+                    {/* Field Name */}
+                    <div style={{ 
+                      fontSize: '8px', // Further reduced field name
+                      color: '#888', 
+                      marginBottom: '1px',
+                      fontWeight: 'bold',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {fieldName}
+                    </div>
+                    
+                    {/* Main Value Display */}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                      {/* Raw Value + Scale Factor */}
+                      <div style={{ 
+                        fontSize: '8px', // Further reduced raw value
+                        color: '#666',
+                        fontFamily: 'monospace',
+                        flexShrink: 0
+                      }}>
+                        {rawValue !== null 
+                          ? `${rawValue} × ${scale}`
+                          : 'N/A'
+                        }
+                      </div>
+                      
+                      {/* Main Scaled Value */}
+                      <div style={{ 
+                        fontSize: '14px', // Further reduced main value size
+                        fontWeight: 'bold', 
+                        color: fieldData && fieldData.value !== null ? '#fff' : '#666',
+                        flex: 1,
+                        textAlign: 'right'
+                      }}>
+                        {scaledValue !== null ? scaledValue : 'N/A'}
+                      </div>
+                      
+                      {/* Unit */}
+                      <div style={{ 
+                        fontSize: '9px', // Further reduced unit
+                        color: '#aaa',
+                        fontWeight: 'normal',
+                        flexShrink: 0
+                      }}>
+                        {unit}
+                      </div>
+                    </div>
+                    
+                    {/* Note Description (if available and space allows) */}
+                    {encoding && encoding.note && (
+                      <div style={{ 
+                        fontSize: '7px', // Further reduced note
+                        color: '#888', 
+                        marginTop: '1px',
+                        lineHeight: '1.1',
+                        maxHeight: '15px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        {encoding.note}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
       })}
+
+      {/* Hover popup */}
+      {hoveredField && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: '#2a2a2a',
+            border: '1px solid #666',
+            borderRadius: '6px',
+            padding: '15px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            zIndex: 1000,
+            minWidth: '300px',
+            maxWidth: '400px'
+          }}
+          onClick={handleFieldLeave}
+        >
+          <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#2196f3' }}>
+            {hoveredField.fieldName}
+          </div>
+          {hoveredField.type && (
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>
+              Type: {hoveredField.type}
+            </div>
+          )}
+          {hoveredField.bytes && hoveredField.bytes.length > 0 && (
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>
+              Bytes: {hoveredField.bytes.join(', ')}
+            </div>
+          )}
+          {hoveredField.note && (
+            <div style={{ fontSize: '12px', color: '#ddd', lineHeight: '1.4' }}>
+              {hoveredField.note}
+            </div>
+          )}
+          <div style={{ fontSize: '10px', color: '#666', marginTop: '8px', textAlign: 'right' }}>
+            Click outside to close
+          </div>
+        </div>
+      )}
     </div>
   );
 };

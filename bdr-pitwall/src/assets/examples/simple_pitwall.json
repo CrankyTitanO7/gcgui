@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-03-26T01:52:11.138Z",
+  "shapes": [
+    {
+      "id": 1774488959636,
+      "type": "can-data",
+      "x": 0,
+      "y": 0,
+      "width": 952,
+      "height": 980,
+      "name": "CAN Data Widget",
+      "dataField": ""
+    },
+    {
+      "id": 1774489562502,
+      "type": "raw-serial",
+      "x": 980,
+      "y": 28,
+      "width": 980,
+      "height": 224,
+      "name": "Raw Serial Widget",
+      "dataField": ""
+    },
+    {
+      "id": 1774489573036,
+      "type": "line-plot",
+      "x": 980,
+      "y": 504,
+      "width": 476,
+      "height": 476,
+      "name": "Line Plot Widget",
+      "dataField": "speed"
+    },
+    {
+      "id": 1774489607752,
+      "type": "line-plot",
+      "x": 1484,
+      "y": 504,
+      "width": 448,
+      "height": 476,
+      "name": "Line Plot Widget",
+      "dataField": "speed"
+    },
+    {
+      "id": 1774489638442,
+      "type": "number",
+      "x": 980,
+      "y": 280,
+      "width": 476,
+      "height": 196,
+      "name": "Number Widget",
+      "dataField": "speed"
+    },
+    {
+      "id": 1774489662474,
+      "type": "number",
+      "x": 1484,
+      "y": 280,
+      "width": 448,
+      "height": 196,
+      "name": "Number Widget",
+      "dataField": "speed"
+    }
+  ],
+  "view": {
+    "panX": 0,
+    "panY": 0,
+    "zoom": 0.75
+  }
+}
