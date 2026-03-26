@@ -3,12 +3,65 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 // Global context for CAN data
 export const CANDataContext = createContext();
 
-// CAN message types and their field mappings
+// CAN message types and their field mappings HARDCODED
+// const CAN_MESSAGE_TYPES = {
+//   '0x100': { name: 'EngineData', fields: ['RPM', 'Throttle', 'EngineTemp', 'OilPressure'] },
+//   '0x200': { name: 'BatteryData', fields: ['Voltage', 'Current', 'Temperature', 'SOC'] },
+//   '0x300': { name: 'SpeedData', fields: ['Speed', 'Gear', 'Distance', 'TripTime'] },
+//   '0x400': { name: 'SensorData', fields: ['Pressure', 'FlowRate', 'Level', 'Status'] }
+// };
+
 const CAN_MESSAGE_TYPES = {
-  '0x100': { name: 'EngineData', fields: ['RPM', 'Throttle', 'EngineTemp', 'OilPressure'] },
-  '0x200': { name: 'BatteryData', fields: ['Voltage', 'Current', 'Temperature', 'SOC'] },
-  '0x300': { name: 'SpeedData', fields: ['Speed', 'Gear', 'Distance', 'TripTime'] },
-  '0x400': { name: 'SensorData', fields: ['Pressure', 'FlowRate', 'Level', 'Status'] }
+  '0x20': {
+    name: 'GeneralData1',
+    fields: ['ERPM', 'DutyCycle', 'InputVoltage'],
+    encoding: {
+      ERPM:         { bytes: [0,1,2,3], type: 'int32be',  scale: 1,   unit: 'ERPM', note: 'Motor RPM × pole pairs' },
+      DutyCycle:    { bytes: [4,5],     type: 'int16be',  scale: 0.1, unit: '%',    note: '+ running, − regen' },
+      InputVoltage: { bytes: [6,7],     type: 'int16be',  scale: 1,   unit: 'V',    note: 'DC bus voltage' }
+    }
+  },
+  '0x21': {
+    name: 'GeneralData2',
+    fields: ['ACCurrent', 'DCCurrent'],
+    encoding: {
+      ACCurrent: { bytes: [0,1],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, − regen' },
+      DCCurrent: { bytes: [2,3],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, − regen' },
+      // bytes [4–7]: reserved, filled with 0xFF
+    }
+  },
+  '0x22': {
+    name: 'GeneralData3',
+    fields: ['ControllerTemp', 'MotorTemp', 'FaultCode'],
+    encoding: {
+      ControllerTemp: { bytes: [0,1], type: 'int16be', scale: 0.1, unit: '°C', note: 'Inverter semiconductor temp' },
+      MotorTemp:      { bytes: [2,3], type: 'int16be', scale: 0.1, unit: '°C', note: 'Motor temp via inverter' },
+      FaultCode:      { bytes: [4],   type: 'uint8',   scale: 1,   unit: '#',  note: '0 = no fault; see fault chart' },
+      // bytes [5–7]: reserved, filled with 0xFF
+    }
+  },
+  '0x23': {
+    name: 'GeneralData4',
+    fields: ['Id', 'Iq'],
+    encoding: {
+      Id: { bytes: [0,1,2,3], type: 'int32be', scale: 0.01, unit: 'Apk', note: 'FOC d-axis current' },
+      Iq: { bytes: [4,5,6,7], type: 'int32be', scale: 0.01, unit: 'Apk', note: 'FOC q-axis current' }
+    }
+  },
+  '0x24': {
+    name: 'GeneralData5',
+    fields: ['Throttle', 'Brake', 'DigitalInputs', 'DigitalOutputs', 'DriveEnable', 'LimitFlags', 'CANMapVersion'],
+    encoding: {
+      Throttle:       { bytes: [0],    type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; −128 to 127' },
+      Brake:          { bytes: [1],    type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; −128 to 127' },
+      DigitalInputs:  { bytes: [2],    type: 'uint8',  scale: 1, unit: '#', note: 'Bits 0–3: DI1–DI4 (1 = active)' },
+      DigitalOutputs: { bytes: [2],    type: 'uint8',  scale: 1, unit: '#', note: 'Bits 4–7: DO1–DO4 (1 = active)' },
+      DriveEnable:    { bytes: [3],    type: 'uint8',  scale: 1, unit: '#', note: 'Bit 0: 1 = drive enabled' },
+      LimitFlags:     { bytes: [4,5],  type: 'uint16', scale: 1, unit: '#', note: 'Bits: CapTemp/DCLim/DriveEnLim/IGBTAccel/IGBTTemp/VinLim/MtrAccelTemp/MtrTemp/RPMMin/RPMMax/PowerLim' },
+      // byte [6]: reserved 0xFF
+      CANMapVersion:  { bytes: [7],    type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 23 → v2.3' }
+    }
+  }
 };
 
 // Global state for parsed CAN data
