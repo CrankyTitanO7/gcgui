@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 // Global context for CAN data
 export const CANDataContext = createContext();
@@ -93,7 +93,16 @@ const CAN_MESSAGE_TYPES = {
       // byte [6]: reserved 0xFF
       CANMapVersion:  { bytes: [7],    type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 23 → v2.3' }
     }
+  }, 
+  // radio can messages
+  '0x31': {
+  name: 'RadioStatus',
+  fields: ['Opcode', 'RSSI'],
+  encoding: {
+    Opcode: { bytes: [0,1], type: 'int16be', scale: 1,   unit: '#',   note: 'RadioLib state code. 0 = OK' },
+    RSSI:   { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'dBm', note: 'Signal strength × 10' }
   }
+},
 };
 
 // Global state for parsed CAN data
