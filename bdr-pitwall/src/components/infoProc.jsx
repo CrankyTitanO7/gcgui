@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 // Global context for CAN data
 export const CANDataContext = createContext();
@@ -93,7 +93,19 @@ const CAN_MESSAGE_TYPES = {
       // byte [6]: reserved 0xFF
       CANMapVersion:  { bytes: [7],    type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 23 → v2.3' }
     }
+  },
+
+  // bms can ids
+  '0x60': {
+  name: 'BMS_Telemetry',
+  fields: ['RelayState', 'FailsafeStatus', 'DTC_Status1', 'DTC_Status2'],
+  encoding: {
+    RelayState:      { bytes: [0,1], type: 'uint16', scale: 1, unit: '#', note: 'B0: Discharge relay, B1: Charge relay, B2: Charger safety, B3: Malfunction indicator, B4: Multi-Purpose Input, B5: Always-on, B6: Is-Ready, B7: Is-Charging' },
+    FailsafeStatus:  { bytes: [2,3], type: 'uint16', scale: 1, unit: '#', note: 'B0: Voltage failsafe, B1: Current failsafe, B2: Relay failsafe, B3: Cell balancing, B4: Charge interlock, B5: Thermistor B-value invalid, B6: Input power failsafe' },
+    DTC_Status1:     { bytes: [4,5], type: 'uint16', scale: 1, unit: '#', note: 'P0A07/08/09/0A/0B/0C/0E/10 fault codes — see BMS docs' },
+    DTC_Status2:     { bytes: [6,7], type: 'uint16', scale: 1, unit: '#', note: 'P0A02/81/9C, U0100, P0560/AA6/A05/A06 fault codes — see BMS docs' }
   }
+},
 };
 
 // Global state for parsed CAN data
