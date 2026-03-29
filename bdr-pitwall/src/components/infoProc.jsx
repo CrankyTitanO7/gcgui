@@ -251,6 +251,37 @@ const CAN_MESSAGE_TYPES = {
       RSSI:   { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'dBm', note: 'Signal strength × 10' },
     }
   },
+
+  // ---------------------------------------------------------------------------
+  // other important need to record messages
+  // ---------------------------------------------------------------------------
+
+  '0x52C': {
+    name: 'Pedalbox',
+    fields: ['ACCurrent'],
+    encoding: {
+      ACCurrent: { 
+        bytes: [0, 1], 
+        type: 'int16be', 
+        scale: 1, // Assumed 1 unless it needs a decimal multiplier
+        unit: '%', 
+        note: 'Relays accelerator press. Sent every 10ms. Bytes 2–7 are 0xFF.' 
+      }
+    }
+  },
+  '0x7FE': {
+    name: 'Dashboard',
+    fields: ['RTD'],
+    encoding: {
+      RTD: { 
+        bytes: [0], 
+        type: 'uint8', 
+        scale: 1, 
+        unit: '#', 
+        note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 1–7 are 0xFF.' 
+      }
+    }
+  }
 };
 
 // ---------------------------------------------------------------------------
