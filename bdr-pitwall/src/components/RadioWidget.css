@@ -1,0 +1,104 @@
+.radio-widget {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 10px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333;
+}
+
+.widget-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.connection-status {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.connection-status.connected {
+  color: #4caf50;
+}
+
+.connection-status.disconnected {
+  color: #f44336;
+}
+
+.radio-data {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.data-field {
+  background: #2a2a2a;
+  border-radius: 6px;
+  padding: 12px;
+  border: 1px solid #444;
+}
+
+.field-label {
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.field-value {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.opcode-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2196f3;
+}
+
+.rssi-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #4caf50;
+}
+
+.rssi-unit {
+  font-size: 14px;
+  color: #aaa;
+  margin-left: 2px;
+}
+
+.no-data {
+  font-size: 24px;
+  font-weight: bold;
+  color: #666;
+}
+
+.field-info {
+  font-size: 10px;
+  color: #666;
+  font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .opcode-value,
+  .rssi-value,
+  .no-data {
+    font-size: 20px;
+  }
+}
