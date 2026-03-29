@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import ControlBar from './components/ControlBar'
 import Editor from './components/Editor'
 import Palette from './components/Palette'
-import ControlBar from './components/ControlBar'
+import RadioWidget from './components/RadioWidget'
 import RawSerialWidget from './components/RawSerialWidget'
-import { InfoProcProvider, CANDataDebugger, useCANDataHook } from './components/infoProc'
-import { saveConfig, loadConfig, createConfig, validateConfig, getDefaultConfig } from './utils/config'
+import { CANDataDebugger, InfoProcProvider, useCANDataHook } from './components/infoProc'
+import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from './utils/config'
 
 const GRID_SIZE = 28
 
@@ -14,6 +15,7 @@ const COMPONENTS = [
   { type: 'line-plot', label: 'Line Plot', w: 8, h: 4, defaultName: 'Line Plot Widget', defaultField: 'speed' },
   { type: 'raw-serial', label: 'Raw Serial', w: 8, h: 6, defaultName: 'Raw Serial Widget', defaultField: '' },
   { type: 'can-data', label: 'CAN Data', w: 10, h: 6, defaultName: 'CAN Data Widget', defaultField: '' },
+  { type: 'radio', label: 'Radio', w: 6, h: 4, defaultName: 'Radio Widget', defaultField: '' },
 ]
 
 const SUPPORTED_TYPES = new Set(COMPONENTS.map((component) => component.type))
@@ -266,6 +268,11 @@ function renderComponent(shape, runtimeState = {}) {
     case 'can-data': {
       return (
         <CANDataDebugger />
+      )
+    }
+    case 'radio': {
+      return (
+        <RadioWidget />
       )
     }
     default:
