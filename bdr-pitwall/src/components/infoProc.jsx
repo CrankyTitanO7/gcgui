@@ -384,7 +384,7 @@ export const CANDataDebugger = () => {
       position: 'relative'
     }}>
       <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#4caf50' }}>
-        CAN Data Parser (β)
+        motor inverter CAN Data Parser
       </div>
       
       <div style={{ marginBottom: '10px' }}>

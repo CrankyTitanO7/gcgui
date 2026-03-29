@@ -14,7 +14,7 @@ const COMPONENTS = [
   { type: 'number', label: 'Number', w: 4, h: 3, defaultName: 'Number Widget', defaultField: 'speed' },
   { type: 'line-plot', label: 'Line Plot', w: 8, h: 4, defaultName: 'Line Plot Widget', defaultField: 'speed' },
   { type: 'raw-serial', label: 'Raw Serial', w: 8, h: 6, defaultName: 'Raw Serial Widget', defaultField: '' },
-  { type: 'can-data', label: 'CAN Data', w: 10, h: 6, defaultName: 'CAN Data Widget', defaultField: '' },
+  { type: 'can-data', label: 'motor inverter', w: 10, h: 6, defaultName: 'motor inverter CAN Data Widget', defaultField: '' },
   { type: 'radio', label: 'Radio', w: 6, h: 4, defaultName: 'Radio Widget', defaultField: '' },
 ]
 
