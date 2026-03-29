@@ -13,14 +13,6 @@ const CAN_MESSAGE_TYPES = {
       InputVoltage: { bytes: [6,7],     type: 'int16be',  scale: 1,   unit: 'V',    note: 'DC bus voltage' }
     }
   },
-  '0x61': {
-    name: 'BMS2',
-    fields: ['LowCellVoltage', 'HighCellVoltage', 'AvgCellVoltage', 'HighID', 'LowID'],
-    encoding: {
-      ACCurrent: { bytes: [0,1], type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
-      DCCurrent: { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
-    }
-  },
   '0x22': {
     name: 'GeneralData3',
     fields: ['ControllerTemp', 'MotorTemp', 'FaultCode'],
@@ -139,6 +131,17 @@ const CAN_MESSAGE_TYPES = {
           15: 'P0A06 Charge Limit'
         }
       }
+    }
+  },
+  '0x61': { // probably
+    name: 'BMS2',
+    fields: ['LowCellVoltage', 'HighCellVoltage', 'AvgCellVoltage', 'HighID', 'LowID'],
+    encoding: {
+      LowCellVoltage: { bytes: [0,1],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Lowest cell voltage' },
+      HighCellVoltage: { bytes: [2,3],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Highest cell voltage' },
+      AvgCellVoltage: { bytes: [4,5],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Average cell voltage' },
+      HighID: { bytes: [6],   type: 'uint8', scale: 1, unit: '#', note: 'Highest cell ID' },
+      LowID: { bytes: [7],   type: 'uint8', scale: 1, unit: '#', note: 'Lowest cell ID' },
     }
   },
 
@@ -271,7 +274,13 @@ const useCANData = () => {
       const rawId = parts[startIndex];
       const idNum = parseInt(rawId, 16);
       if (isNaN(idNum)) return null;
-      const id = '0x' + idNum.toString(16);
+
+      // DTI inverter uses extended ID (R29): PacketID << 8 | NodeID
+      // Strip the node ID to get the packet ID we match against
+      const frameType = parts[0]; // e.g. "R29", "R11"
+      const isExtended = frameType === 'R29' || frameType === '2R29';
+      const packetNum = isExtended ? (idNum >> 8) : idNum;
+      const id = '0x' + packetNum.toString(16);
 
     // Some logs include DLC after ID (e.g. "... 020 8 00 11 ..."), others don't.
     const payloadTokens = parts.slice(startIndex + 1);
