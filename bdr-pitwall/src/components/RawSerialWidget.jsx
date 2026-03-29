@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './RawSerialWidget.css';
 
-const RawSerialWidget = () => {
+const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
   const [rawData, setRawData] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -17,6 +17,9 @@ const RawSerialWidget = () => {
     // Listen for serial data
     if (window.electronAPI.onSerialData) {
       cleanupData = window.electronAPI.onSerialData((data) => {
+        if (!isRunning || dataSource !== 'live') {
+          return;
+        }
         console.log('Serial data received:', data); // Debug log
         const timestamp = new Date().toLocaleTimeString();
         const newData = { timestamp, data: data.toString() };
@@ -41,7 +44,7 @@ const RawSerialWidget = () => {
       if (cleanupData) cleanupData();
       if (cleanupStatus) cleanupStatus();
     };
-  }, []);
+  }, [isRunning, dataSource]);
 
   const clearData = () => {
     setRawData([]);
@@ -68,7 +71,11 @@ const RawSerialWidget = () => {
         <div className="raw-data-content">
           {rawData.length === 0 ? (
             <div className="no-data">
-              {isConnected ? 'Waiting for data...' : 'No data received yet...'}
+              {!isConnected
+                ? 'No data received yet...'
+                : !isRunning || dataSource !== 'live'
+                ? 'Paused'
+                : 'Waiting for data...'}
             </div>
           ) : (
             rawData.map((item, index) => (

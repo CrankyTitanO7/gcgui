@@ -13,9 +13,9 @@ const CAN_MESSAGE_TYPES = {
       InputVoltage: { bytes: [6,7],     type: 'int16be',  scale: 1,   unit: 'V',    note: 'DC bus voltage' }
     }
   },
-  '0x21': {
-    name: 'GeneralData2',
-    fields: ['ACCurrent', 'DCCurrent'],
+  '0x61': {
+    name: 'BMS2',
+    fields: ['LowCellVoltage', 'HighCellVoltage', 'AvgCellVoltage', 'HighID', 'LowID'],
     encoding: {
       ACCurrent: { bytes: [0,1], type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
       DCCurrent: { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
@@ -152,7 +152,16 @@ const CAN_MESSAGE_TYPES = {
       Opcode: { bytes: [0,1], type: 'int16be', scale: 1,   unit: '#',   note: 'RadioLib state code. 0 = OK' },
       RSSI:   { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'dBm', note: 'Signal strength × 10' }
     }
+  }, 
+  // radio can messages
+  '0x31': {
+  name: 'RadioStatus',
+  fields: ['Opcode', 'RSSI'],
+  encoding: {
+    Opcode: { bytes: [0,1], type: 'int16be', scale: 1,   unit: '#',   note: 'RadioLib state code. 0 = OK' },
+    RSSI:   { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'dBm', note: 'Signal strength × 10' }
   }
+},
 };
 
 // ---------------------------------------------------------------------------
@@ -272,15 +281,72 @@ const useCANData = () => {
       if (isNaN(idNum)) return null;
       const id = '0x' + idNum.toString(16);
 
-      const dataBytes = parts.slice(startIndex + 1);
+    // Some logs include DLC after ID (e.g. "... 020 8 00 11 ..."), others don't.
+    const payloadTokens = parts.slice(startIndex + 1);
+    let dataTokenStart = 0;
+    if (payloadTokens.length > 0) {
+      const maybeDlc = payloadTokens[0];
+      const dlcNum = /^\d+$/.test(maybeDlc)
+        ? parseInt(maybeDlc, 10)
+        : (/^[0-9a-fA-F]+$/.test(maybeDlc) ? parseInt(maybeDlc, 16) : NaN);
+
+      // Treat first payload token as DLC only when it's a decimal number (1-64) 
+      // or a hex value that matches expected byte count.
+      // Exclude '00' since it's commonly a valid data byte, not DLC.
+      if (!Number.isNaN(dlcNum) && dlcNum > 0 && dlcNum <= 64 && 
+          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
+        dataTokenStart = 1;
+      }
+    }
+
+    const dataBytes = payloadTokens
+      .slice(dataTokenStart)
+      .filter(token => /^[0-9a-fA-F]{1,2}$/.test(token));
 
       if (!CAN_MESSAGE_TYPES[id] || dataBytes.length === 0) {
         console.warn('Unknown CAN ID:', id);
         return null;
       }
 
-      const messageConfig = CAN_MESSAGE_TYPES[id];
-      const dataBuffer = new Uint8Array(dataBytes.map(b => parseInt(b, 16)));
+    const messageConfig = CAN_MESSAGE_TYPES[id];
+    const dataBuffer = new Uint8Array(dataBytes.map(b => parseInt(b, 16)));
+
+    const decodeFieldValue = (buffer, encoding) => {
+      const { bytes, type } = encoding;
+      if (!bytes || bytes.length === 0 || Math.max(...bytes) >= buffer.length) {
+        return null;
+      }
+
+      const selected = new Uint8Array(bytes.map(pos => buffer[pos]));
+      const view = new DataView(selected.buffer);
+
+      switch (type) {
+        case 'int32be':
+          if (selected.length < 4) return null;
+          return view.getInt32(0, false);
+        case 'uint32':
+        case 'uint32be':
+          if (selected.length < 4) return null;
+          return view.getUint32(0, false);
+        case 'int16be':
+          if (selected.length < 2) return null;
+          return view.getInt16(0, false);
+        case 'uint16':
+        case 'uint16be':
+          if (selected.length < 2) return null;
+          return view.getUint16(0, false);
+        case 'int8':
+          return view.getInt8(0);
+        case 'uint8':
+          return view.getUint8(0);
+        default: {
+          // Fallback for unknown type: big-endian unsigned aggregation.
+          let value = 0;
+          selected.forEach(b => { value = value * 256 + b; });
+          return value;
+        }
+      }
+    };
 
       const parsedData = {
         id,
@@ -297,28 +363,16 @@ const useCANData = () => {
           return;
         }
 
-        const { bytes, type, scale, unit } = encoding;
+      const { scale, unit } = encoding;
+      const raw = decodeFieldValue(dataBuffer, encoding);
+      if (raw === null) {
+        parsedData.fields[fieldName] = { value: null, unit, raw: null };
+        return;
+      }
 
-        if (!bytes || bytes.length === 0 || Math.max(...bytes) >= dataBuffer.length) {
-          parsedData.fields[fieldName] = { value: null, unit, raw: null };
-          return;
-        }
-
-        let raw = 0;
-        bytes.forEach(pos => { raw = raw * 256 + dataBuffer[pos]; });
-
-        let signed = raw;
-        if (type === 'int32be' && raw >= 0x80000000) {
-          signed = raw - 0x100000000;
-        } else if (type === 'int16be' && raw >= 0x8000) {
-          signed = raw - 0x10000;
-        } else if (type === 'int8' && raw >= 0x80) {
-          signed = raw - 0x100;
-        }
-
-        const value = Math.round(signed * scale * 100) / 100;
-        parsedData.fields[fieldName] = { value, unit, raw };
-      });
+      const value = Math.round(raw * (scale ?? 1) * 10000) / 10000;
+      parsedData.fields[fieldName] = { value, unit, raw };
+    });
 
       return parsedData;
 
@@ -357,7 +411,7 @@ const useCANData = () => {
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
-export const InfoProcProvider = ({ children }) => {
+export const InfoProcProvider = ({ children, isRunning = true }) => {
   const canData = useCANData();
 
   useEffect(() => {
@@ -370,7 +424,12 @@ export const InfoProcProvider = ({ children }) => {
     let cleanupStatus = null;
 
     if (window.electronAPI.onSerialData) {
-      cleanupData = window.electronAPI.onSerialData(canData.handleSerialData);
+      cleanupData = window.electronAPI.onSerialData((data) => {
+        if (!isRunning) {
+          return;
+        }
+        canData.handleSerialData(data);
+      });
     }
     if (window.electronAPI.onSerialConnectionStatus) {
       cleanupStatus = window.electronAPI.onSerialConnectionStatus(canData.handleConnectionStatus);
@@ -380,7 +439,7 @@ export const InfoProcProvider = ({ children }) => {
       if (cleanupData) cleanupData();
       if (cleanupStatus) cleanupStatus();
     };
-  }, [canData.handleSerialData, canData.handleConnectionStatus]);
+  }, [canData.handleSerialData, canData.handleConnectionStatus, isRunning]);
 
   return (
     <CANDataContext.Provider value={canData}>
@@ -428,7 +487,7 @@ export const CANDataDebugger = () => {
       position: 'relative'
     }}>
       <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#4caf50' }}>
-        CAN Data Parser (β)
+        motor inverter CAN Data Parser
       </div>
 
       <div style={{ marginBottom: '10px' }}>

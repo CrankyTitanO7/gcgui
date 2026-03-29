@@ -4,6 +4,7 @@ import BMSStatusWidget from './components/BMS'
 import ControlBar from './components/ControlBar'
 import Editor from './components/Editor'
 import Palette from './components/Palette'
+import RadioWidget from './components/RadioWidget'
 import RawSerialWidget from './components/RawSerialWidget'
 import { CANDataDebugger, InfoProcProvider, useCANDataHook } from './components/infoProc'
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from './utils/config'
@@ -14,8 +15,9 @@ const COMPONENTS = [
   { type: 'number', label: 'Number', w: 4, h: 3, defaultName: 'Number Widget', defaultField: 'speed' },
   { type: 'line-plot', label: 'Line Plot', w: 8, h: 4, defaultName: 'Line Plot Widget', defaultField: 'speed' },
   { type: 'raw-serial', label: 'Raw Serial', w: 8, h: 6, defaultName: 'Raw Serial Widget', defaultField: '' },
-  { type: 'can-data', label: 'CAN Data', w: 10, h: 6, defaultName: 'CAN Data Widget', defaultField: '' },
+  { type: 'can-data', label: 'motor inverter', w: 10, h: 6, defaultName: 'motor inverter CAN Data Widget', defaultField: '' },
   { type: 'bms-status', label: 'BMS Status', w: 10, h: 8, defaultName: 'BMS Status', defaultField: '' },
+  { type: 'radio', label: 'Radio', w: 6, h: 4, defaultName: 'Radio Widget', defaultField: '' },
 ]
 
 const SUPPORTED_TYPES = new Set(COMPONENTS.map((component) => component.type))
@@ -249,13 +251,21 @@ function LinePlotWidget({ shape }) {
   );
 }
 
-function renderComponent(shape) {
+function renderComponent(shape, runtimeState = {}) {
   switch (shape.type) {
     case 'number':     return <NumberWidget shape={shape} />;
     case 'line-plot':  return <LinePlotWidget shape={shape} />;
-    case 'raw-serial': return <RawSerialWidget />;
+    case 'raw-serial': return <RawSerialWidget
+          isRunning={runtimeState.isRunning}
+          dataSource={runtimeState.dataSource}
+        />;
     case 'can-data':   return <CANDataDebugger />;
     case 'bms-status': return <BMSStatusWidget shape={shape} />;
+    case 'radio': {
+      return (
+        <RadioWidget />
+      )
+    }
     default:           return <div className="fallback-block">Unsupported widget</div>;
   }
 }
@@ -548,6 +558,46 @@ function App() {
     }
   }, [usbPort, baudRate])
 
+  useEffect(() => {
+    if (!window.electronAPI || !window.electronAPI.startLiveRecording || !window.electronAPI.stopLiveRecording) {
+      return
+    }
+
+    const shouldRecord = dataSource === 'live' && isRunning && Boolean(usbPort && usbPort.trim())
+
+    if (shouldRecord) {
+      window.electronAPI
+        .startLiveRecording()
+        .then((result) => {
+          if (!result?.ok) {
+            console.error('Failed to start live recording:', result?.error)
+            return
+          }
+          console.log('Live recording file:', result.filePath)
+        })
+        .catch((error) => {
+          console.error('Failed to start live recording:', error)
+        })
+      return
+    }
+
+    window.electronAPI.stopLiveRecording().catch((error) => {
+      console.error('Failed to stop live recording:', error)
+    })
+  }, [dataSource, isRunning, usbPort])
+
+  useEffect(() => {
+    if (!window.electronAPI || !window.electronAPI.stopLiveRecording) {
+      return undefined
+    }
+
+    return () => {
+      window.electronAPI.stopLiveRecording().catch((error) => {
+        console.error('Failed to stop live recording on cleanup:', error)
+      })
+    }
+  }, [])
+
   // Handle baud rate changes from menu
   useEffect(() => {
     if (window.electron && window.electron.ipcRenderer) {
@@ -580,7 +630,7 @@ function App() {
   }, [])
 
   return (
-    <InfoProcProvider>
+    <InfoProcProvider isRunning={isRunning}>
       <div className="app-shell" onClick={() => setContextMenu(null)}>
         <ControlBar
           dataSource={dataSource}
@@ -614,7 +664,7 @@ function App() {
           gridSize={GRID_SIZE}
           zoom={zoom}
           setZoom={setZoom}
-          renderShape={(shape) => renderComponent(shape)}
+          renderShape={(shape) => renderComponent(shape, { isRunning, dataSource })}
         />
         <Palette
           components={COMPONENTS}
