@@ -404,17 +404,23 @@ const useCANData = () => {
       if (isNaN(idNum)) return null;
       const id = '0x' + idNum.toString(16);
 
-      const payloadTokens = parts.slice(startIndex + 1);
-      let dataTokenStart = 0;
-      if (payloadTokens.length > 0) {
-        const maybeDlc = payloadTokens[0];
-        const dlcNum = /^\d+$/.test(maybeDlc)
-          ? parseInt(maybeDlc, 10)
-          : (/^[0-9a-fA-F]+$/.test(maybeDlc) ? parseInt(maybeDlc, 16) : NaN);
-        if (!Number.isNaN(dlcNum) && dlcNum >= 0 && dlcNum <= 64 && payloadTokens.length - 1 >= dlcNum) {
-          dataTokenStart = 1;
-        }
+    // Some logs include DLC after ID (e.g. "... 020 8 00 11 ..."), others don't.
+    const payloadTokens = parts.slice(startIndex + 1);
+    let dataTokenStart = 0;
+    if (payloadTokens.length > 0) {
+      const maybeDlc = payloadTokens[0];
+      const dlcNum = /^\d+$/.test(maybeDlc)
+        ? parseInt(maybeDlc, 10)
+        : (/^[0-9a-fA-F]+$/.test(maybeDlc) ? parseInt(maybeDlc, 16) : NaN);
+
+      // Treat first payload token as DLC only when it's a decimal number (1-64) 
+      // or a hex value that matches expected byte count.
+      // Exclude '00' since it's commonly a valid data byte, not DLC.
+      if (!Number.isNaN(dlcNum) && dlcNum > 0 && dlcNum <= 64 && 
+          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
+        dataTokenStart = 1;
       }
+    }
 
       const dataBytes = payloadTokens
         .slice(dataTokenStart)
@@ -537,7 +543,7 @@ export const CANDataDebugger = () => {
       margin: '10px 0', position: 'relative',
     }}>
       <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#4caf50' }}>
-        CAN Data Parser (β)
+        motor inverter CAN Data Parser
       </div>
 
       <div style={{ marginBottom: '10px' }}>
