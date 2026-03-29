@@ -44,16 +44,7 @@ export const CANDataContext = createContext();
 // };
 
 const CAN_MESSAGE_TYPES = {
-  '0x1f': {
-    name: 'GeneralData6',
-    fields: ['ControlMode', 'TargetIq', 'MotorPosition', 'isMotorStill'],
-    encoding: {
-      ControlMode:   { bytes: [0],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=Speed 2=Current 3=CurrentBrake 4=Position 7=None' },
-      TargetIq:      { bytes: [1,2], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Target Iq current, excludes limits' },
-      MotorPosition: { bytes: [3,4], type: 'int16be', scale: 0.1, unit: '°',   note: 'Motor position in degrees (0-359)' },
-      isMotorStill:  { bytes: [5],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=still, 0=rotating' },
-    }
-  },
+  
   '0x20': {
     name: 'GeneralData1',
     fields: ['ERPM', 'DutyCycle', 'InputVoltage'],
@@ -117,6 +108,16 @@ const CAN_MESSAGE_TYPES = {
         }
       },
       CANMapVersion:  { bytes: [7],   type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 25 → v2.5' },
+    }
+  },
+  '0x1f': {
+    name: 'GeneralData6',
+    fields: ['ControlMode', 'TargetIq', 'MotorPosition', 'isMotorStill'],
+    encoding: {
+      ControlMode:   { bytes: [0],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=Speed 2=Current 3=CurrentBrake 4=Position 7=None' },
+      TargetIq:      { bytes: [1,2], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Target Iq current, excludes limits' },
+      MotorPosition: { bytes: [3,4], type: 'int16be', scale: 0.1, unit: '°',   note: 'Motor position in degrees (0-359)' },
+      isMotorStill:  { bytes: [5],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=still, 0=rotating' },
     }
   },
   '0x25': {
