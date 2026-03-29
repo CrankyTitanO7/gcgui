@@ -12,7 +12,7 @@ let port = null;
 let parser = null;
 let currentBaudRate = 115200;
 let recordingEnabled = false;
-let recordingStream = null;
+let recordingFd = null;
 let recordingFilePath = null;
 
 function getRecordingDirectory() {
@@ -24,7 +24,7 @@ function getTimestampForFilename() {
 }
 
 function startLiveRecording() {
-  if (recordingEnabled && recordingStream && recordingFilePath) {
+  if (recordingEnabled && recordingFd !== null && recordingFilePath) {
     return recordingFilePath;
   }
 
@@ -32,16 +32,13 @@ function startLiveRecording() {
   fs.mkdirSync(dir, { recursive: true });
 
   const filePath = path.join(dir, `live-${getTimestampForFilename()}.crtd`);
-  const stream = fs.createWriteStream(filePath, { flags: 'a' });
+  const fd = fs.openSync(filePath, 'a');
 
-  stream.on('error', (error) => {
-    console.error('❌ Live recording stream error:', error);
-  });
-
-  stream.write(`CXXRTL BDR-Pitwall live capture ${new Date().toISOString()}\n`);
+  fs.writeSync(fd, `CXXRTL BDR-Pitwall live capture ${new Date().toISOString()}\n`);
+  fs.fsyncSync(fd);
 
   recordingEnabled = true;
-  recordingStream = stream;
+  recordingFd = fd;
   recordingFilePath = filePath;
 
   console.log('📝 Live recording started:', filePath);
@@ -49,21 +46,24 @@ function startLiveRecording() {
 }
 
 function stopLiveRecording() {
-  if (!recordingStream) {
+  if (recordingFd === null) {
     recordingEnabled = false;
     recordingFilePath = null;
     return;
   }
 
-  const stream = recordingStream;
+  const fd = recordingFd;
   const activeFile = recordingFilePath;
   recordingEnabled = false;
-  recordingStream = null;
+  recordingFd = null;
   recordingFilePath = null;
 
-  stream.end(() => {
+  try {
+    fs.closeSync(fd);
     console.log('📝 Live recording stopped:', activeFile);
-  });
+  } catch (error) {
+    console.error('❌ Failed closing live recording file:', error);
+  }
 }
 
 // Import serial port modules at the top level
@@ -127,10 +127,16 @@ function connectToPort(portPath, baudRate = currentBaudRate) {
       console.log('   Length:', line.length, 'bytes');
       console.log('   Content:', JSON.stringify(line));
 
-      if (recordingEnabled && recordingStream) {
-        const frame = String(line).replace(/\r$/, '');
-        if (frame.length > 0) {
-          recordingStream.write(`${frame}\n`);
+      if (recordingEnabled && recordingFd !== null) {
+        try {
+          const frame = String(line).replace(/\r$/, '');
+          if (frame.length > 0) {
+            fs.writeSync(recordingFd, `${frame}\n`);
+            fs.fsyncSync(recordingFd);
+          }
+        } catch (error) {
+          console.error('❌ Failed to write live frame to recording file:', error);
+          stopLiveRecording();
         }
       }
       

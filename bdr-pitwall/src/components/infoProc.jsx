@@ -291,7 +291,7 @@ const useCANData = () => {
 };
 
 // InfoProc component that processes serial data
-export const InfoProcProvider = ({ children }) => {
+export const InfoProcProvider = ({ children, isRunning = true }) => {
   const canData = useCANData();
 
   useEffect(() => {
@@ -305,7 +305,12 @@ export const InfoProcProvider = ({ children }) => {
 
     // Listen for serial data
     if (window.electronAPI.onSerialData) {
-      cleanupData = window.electronAPI.onSerialData(canData.handleSerialData);
+      cleanupData = window.electronAPI.onSerialData((data) => {
+        if (!isRunning) {
+          return;
+        }
+        canData.handleSerialData(data);
+      });
     }
 
     // Listen for connection status
@@ -318,7 +323,7 @@ export const InfoProcProvider = ({ children }) => {
       if (cleanupData) cleanupData();
       if (cleanupStatus) cleanupStatus();
     };
-  }, [canData.handleSerialData, canData.handleConnectionStatus]);
+  }, [canData.handleSerialData, canData.handleConnectionStatus, isRunning]);
 
   return (
     <CANDataContext.Provider value={canData}>

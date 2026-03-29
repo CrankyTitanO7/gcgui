@@ -247,7 +247,7 @@ function LinePlotWidget({ shape }) {
   );
 }
 
-function renderComponent(shape) {
+function renderComponent(shape, runtimeState = {}) {
   switch (shape.type) {
     case 'number': {
       return <NumberWidget shape={shape} />;
@@ -257,7 +257,10 @@ function renderComponent(shape) {
     }
     case 'raw-serial': {
       return (
-        <RawSerialWidget />
+        <RawSerialWidget
+          isRunning={runtimeState.isRunning}
+          dataSource={runtimeState.dataSource}
+        />
       )
     }
     case 'can-data': {
@@ -630,7 +633,7 @@ function App() {
   }, [])
 
   return (
-    <InfoProcProvider>
+    <InfoProcProvider isRunning={isRunning}>
       <div className="app-shell" onClick={() => setContextMenu(null)}>
         <ControlBar
           dataSource={dataSource}
@@ -664,7 +667,7 @@ function App() {
           gridSize={GRID_SIZE}
           zoom={zoom}
           setZoom={setZoom}
-          renderShape={(shape) => renderComponent(shape)}
+          renderShape={(shape) => renderComponent(shape, { isRunning, dataSource })}
         />
         <Palette
           components={COMPONENTS}
