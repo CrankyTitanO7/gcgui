@@ -53,13 +53,15 @@ const CAN_MESSAGE_TYPES = {
       InputVoltage: { bytes: [6,7],     type: 'int16be',  scale: 1,   unit: 'V',    note: 'DC bus voltage' }
     }
   },
-  '0x21': {
-    name: 'GeneralData2',
-    fields: ['ACCurrent', 'DCCurrent'],
+  '0x61': {
+    name: 'BMS2',
+    fields: ['LowCellVoltage', 'HighCellVoltage', 'AvgCellVoltage', 'HighID', 'LowID'],
     encoding: {
-      ACCurrent: { bytes: [0,1],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
-      DCCurrent: { bytes: [2,3],   type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
-      // bytes [4–7]: reserved, filled with 0xFF
+      LowCellVoltage: { bytes: [0,1],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Lowest cell voltage' },
+      HighCellVoltage: { bytes: [2,3],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Highest cell voltage' },
+      AvgCellVoltage: { bytes: [4,5],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Average cell voltage' },
+      HighID: { bytes: [6],   type: 'uint8', scale: 1, unit: '#', note: 'Highest cell ID' },
+      LowID: { bytes: [7],   type: 'uint8', scale: 1, unit: '#', note: 'Lowest cell ID' },
     }
   },
   '0x22': {
@@ -158,8 +160,24 @@ const useCANData = () => {
     if (isNaN(idNum)) return null;
     const id = '0x' + idNum.toString(16); // "0x20", "0x21", etc.
 
-    // FIX 2: No DLC in CRTD — everything after the ID is data bytes
-    const dataBytes = parts.slice(startIndex + 1);
+    // Some logs include DLC after ID (e.g. "... 020 8 00 11 ..."), others don't.
+    const payloadTokens = parts.slice(startIndex + 1);
+    let dataTokenStart = 0;
+    if (payloadTokens.length > 0) {
+      const maybeDlc = payloadTokens[0];
+      const dlcNum = /^\d+$/.test(maybeDlc)
+        ? parseInt(maybeDlc, 10)
+        : (/^[0-9a-fA-F]+$/.test(maybeDlc) ? parseInt(maybeDlc, 16) : NaN);
+
+      // Treat first payload token as DLC only when it matches remaining byte count.
+      if (!Number.isNaN(dlcNum) && dlcNum >= 0 && dlcNum <= 64 && payloadTokens.length - 1 >= dlcNum) {
+        dataTokenStart = 1;
+      }
+    }
+
+    const dataBytes = payloadTokens
+      .slice(dataTokenStart)
+      .filter(token => /^[0-9a-fA-F]{1,2}$/.test(token));
 
     if (!CAN_MESSAGE_TYPES[id] || dataBytes.length === 0) {
       console.warn('Unknown CAN ID:', id);
@@ -168,6 +186,43 @@ const useCANData = () => {
 
     const messageConfig = CAN_MESSAGE_TYPES[id];
     const dataBuffer = new Uint8Array(dataBytes.map(b => parseInt(b, 16)));
+
+    const decodeFieldValue = (buffer, encoding) => {
+      const { bytes, type } = encoding;
+      if (!bytes || bytes.length === 0 || Math.max(...bytes) >= buffer.length) {
+        return null;
+      }
+
+      const selected = new Uint8Array(bytes.map(pos => buffer[pos]));
+      const view = new DataView(selected.buffer);
+
+      switch (type) {
+        case 'int32be':
+          if (selected.length < 4) return null;
+          return view.getInt32(0, false);
+        case 'uint32':
+        case 'uint32be':
+          if (selected.length < 4) return null;
+          return view.getUint32(0, false);
+        case 'int16be':
+          if (selected.length < 2) return null;
+          return view.getInt16(0, false);
+        case 'uint16':
+        case 'uint16be':
+          if (selected.length < 2) return null;
+          return view.getUint16(0, false);
+        case 'int8':
+          return view.getInt8(0);
+        case 'uint8':
+          return view.getUint8(0);
+        default: {
+          // Fallback for unknown type: big-endian unsigned aggregation.
+          let value = 0;
+          selected.forEach(b => { value = value * 256 + b; });
+          return value;
+        }
+      }
+    };
 
     const parsedData = {
       id,
@@ -184,29 +239,14 @@ const useCANData = () => {
         return;
       }
 
-      const { bytes, type, scale, unit } = encoding;
-
-      // Check all required bytes are present
-      if (!bytes || bytes.length === 0 || Math.max(...bytes) >= dataBuffer.length) {
+      const { scale, unit } = encoding;
+      const raw = decodeFieldValue(dataBuffer, encoding);
+      if (raw === null) {
         parsedData.fields[fieldName] = { value: null, unit, raw: null };
         return;
       }
 
-      // Read raw unsigned value from byte positions (avoid bitwise to stay >32-bit safe)
-      let raw = 0;
-      bytes.forEach(pos => { raw = raw * 256 + dataBuffer[pos]; });
-
-      // FIX 3: Convert to signed based on type
-      let signed = raw;
-      if (type === 'int32be' && raw >= 0x80000000) {
-        signed = raw - 0x100000000;
-      } else if (type === 'int16be' && raw >= 0x8000) {
-        signed = raw - 0x10000;
-      } else if (type === 'int8' && raw >= 0x80) {
-        signed = raw - 0x100;
-      }
-
-      const value = Math.round(signed * scale * 100) / 100;
+      const value = Math.round(raw * (scale ?? 1) * 10000) / 10000;
       parsedData.fields[fieldName] = { value, unit, raw };
     });
 

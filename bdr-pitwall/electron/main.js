@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // Debug tooling is enabled in development by default and disabled in packaged apps.
 // You can override in development with: ELECTRON_DEBUG_TOOLS=0
@@ -10,6 +11,60 @@ let win = null;
 let port = null;
 let parser = null;
 let currentBaudRate = 115200;
+let recordingEnabled = false;
+let recordingStream = null;
+let recordingFilePath = null;
+
+function getRecordingDirectory() {
+  return path.join(app.getPath('documents'), 'bdr-pitwall-recordings');
+}
+
+function getTimestampForFilename() {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
+
+function startLiveRecording() {
+  if (recordingEnabled && recordingStream && recordingFilePath) {
+    return recordingFilePath;
+  }
+
+  const dir = getRecordingDirectory();
+  fs.mkdirSync(dir, { recursive: true });
+
+  const filePath = path.join(dir, `live-${getTimestampForFilename()}.crtd`);
+  const stream = fs.createWriteStream(filePath, { flags: 'a' });
+
+  stream.on('error', (error) => {
+    console.error('❌ Live recording stream error:', error);
+  });
+
+  stream.write(`CXXRTL BDR-Pitwall live capture ${new Date().toISOString()}\n`);
+
+  recordingEnabled = true;
+  recordingStream = stream;
+  recordingFilePath = filePath;
+
+  console.log('📝 Live recording started:', filePath);
+  return filePath;
+}
+
+function stopLiveRecording() {
+  if (!recordingStream) {
+    recordingEnabled = false;
+    recordingFilePath = null;
+    return;
+  }
+
+  const stream = recordingStream;
+  const activeFile = recordingFilePath;
+  recordingEnabled = false;
+  recordingStream = null;
+  recordingFilePath = null;
+
+  stream.end(() => {
+    console.log('📝 Live recording stopped:', activeFile);
+  });
+}
 
 // Import serial port modules at the top level
 const { SerialPort } = require('serialport');
@@ -71,6 +126,13 @@ function connectToPort(portPath, baudRate = currentBaudRate) {
       console.log('📥 RAW DATA RECEIVED:', line);
       console.log('   Length:', line.length, 'bytes');
       console.log('   Content:', JSON.stringify(line));
+
+      if (recordingEnabled && recordingStream) {
+        const frame = String(line).replace(/\r$/, '');
+        if (frame.length > 0) {
+          recordingStream.write(`${frame}\n`);
+        }
+      }
       
       // Send to renderer via IPC
       if (win && win.webContents) {
@@ -137,6 +199,26 @@ ipcMain.handle('get-serial-ports', async () => {
 
 ipcMain.on('connect-serial-port', (event, portPath) => {
   connectToPort(portPath);
+});
+
+ipcMain.handle('start-live-recording', async () => {
+  try {
+    const filePath = startLiveRecording();
+    return { ok: true, filePath };
+  } catch (error) {
+    console.error('❌ Failed to start live recording:', error);
+    return { ok: false, error: error.message || 'Unknown error' };
+  }
+});
+
+ipcMain.handle('stop-live-recording', async () => {
+  try {
+    stopLiveRecording();
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ Failed to stop live recording:', error);
+    return { ok: false, error: error.message || 'Unknown error' };
+  }
 });
 
 ipcMain.on('disconnect-serial-port', () => {
@@ -322,6 +404,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopLiveRecording();
   if (process.platform !== 'darwin') app.quit();
 });
 

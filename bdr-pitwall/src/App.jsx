@@ -558,6 +558,46 @@ function App() {
     }
   }, [usbPort, baudRate])
 
+  useEffect(() => {
+    if (!window.electronAPI || !window.electronAPI.startLiveRecording || !window.electronAPI.stopLiveRecording) {
+      return
+    }
+
+    const shouldRecord = dataSource === 'live' && isRunning && Boolean(usbPort && usbPort.trim())
+
+    if (shouldRecord) {
+      window.electronAPI
+        .startLiveRecording()
+        .then((result) => {
+          if (!result?.ok) {
+            console.error('Failed to start live recording:', result?.error)
+            return
+          }
+          console.log('Live recording file:', result.filePath)
+        })
+        .catch((error) => {
+          console.error('Failed to start live recording:', error)
+        })
+      return
+    }
+
+    window.electronAPI.stopLiveRecording().catch((error) => {
+      console.error('Failed to stop live recording:', error)
+    })
+  }, [dataSource, isRunning, usbPort])
+
+  useEffect(() => {
+    if (!window.electronAPI || !window.electronAPI.stopLiveRecording) {
+      return undefined
+    }
+
+    return () => {
+      window.electronAPI.stopLiveRecording().catch((error) => {
+        console.error('Failed to stop live recording on cleanup:', error)
+      })
+    }
+  }, [])
+
   // Handle baud rate changes from menu
   useEffect(() => {
     if (window.electron && window.electron.ipcRenderer) {
