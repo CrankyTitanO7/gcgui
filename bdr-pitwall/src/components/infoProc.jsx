@@ -145,14 +145,6 @@ const CAN_MESSAGE_TYPES = {
   // ---------------------------------------------------------------------------
   // Radio status (ESP32 receiver)
   // ---------------------------------------------------------------------------
-  '0x31': {
-    name: 'RadioStatus',
-    fields: ['Opcode', 'RSSI'],
-    encoding: {
-      Opcode: { bytes: [0,1], type: 'int16be', scale: 1,   unit: '#',   note: 'RadioLib state code. 0 = OK' },
-      RSSI:   { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'dBm', note: 'Signal strength × 10' }
-    }
-  }, 
   // radio can messages
   '0x31': {
   name: 'RadioStatus',
