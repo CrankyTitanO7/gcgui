@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import BMSStatusWidget from './components/BMS'
+import ControlBar from './components/ControlBar'
 import Editor from './components/Editor'
 import Palette from './components/Palette'
-import ControlBar from './components/ControlBar'
 import RawSerialWidget from './components/RawSerialWidget'
-import { InfoProcProvider, CANDataDebugger, useCANDataHook } from './components/infoProc'
-import { saveConfig, loadConfig, createConfig, validateConfig, getDefaultConfig } from './utils/config'
+import { CANDataDebugger, InfoProcProvider, useCANDataHook } from './components/infoProc'
+import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from './utils/config'
 
 const GRID_SIZE = 28
 
@@ -14,6 +15,7 @@ const COMPONENTS = [
   { type: 'line-plot', label: 'Line Plot', w: 8, h: 4, defaultName: 'Line Plot Widget', defaultField: 'speed' },
   { type: 'raw-serial', label: 'Raw Serial', w: 8, h: 6, defaultName: 'Raw Serial Widget', defaultField: '' },
   { type: 'can-data', label: 'CAN Data', w: 10, h: 6, defaultName: 'CAN Data Widget', defaultField: '' },
+  { type: 'bms-status', label: 'BMS Status', w: 10, h: 8, defaultName: 'BMS Status', defaultField: '' },
 ]
 
 const SUPPORTED_TYPES = new Set(COMPONENTS.map((component) => component.type))
@@ -249,24 +251,12 @@ function LinePlotWidget({ shape }) {
 
 function renderComponent(shape) {
   switch (shape.type) {
-    case 'number': {
-      return <NumberWidget shape={shape} />;
-    }
-    case 'line-plot': {
-      return <LinePlotWidget shape={shape} />;
-    }
-    case 'raw-serial': {
-      return (
-        <RawSerialWidget />
-      )
-    }
-    case 'can-data': {
-      return (
-        <CANDataDebugger />
-      )
-    }
-    default:
-      return <div className="fallback-block">Unsupported widget</div>
+    case 'number':     return <NumberWidget shape={shape} />;
+    case 'line-plot':  return <LinePlotWidget shape={shape} />;
+    case 'raw-serial': return <RawSerialWidget />;
+    case 'can-data':   return <CANDataDebugger />;
+    case 'bms-status': return <BMSStatusWidget shape={shape} />;
+    default:           return <div className="fallback-block">Unsupported widget</div>;
   }
 }
 
