@@ -178,8 +178,11 @@ const useCANData = () => {
         ? parseInt(maybeDlc, 10)
         : (/^[0-9a-fA-F]+$/.test(maybeDlc) ? parseInt(maybeDlc, 16) : NaN);
 
-      // Treat first payload token as DLC only when it matches remaining byte count.
-      if (!Number.isNaN(dlcNum) && dlcNum >= 0 && dlcNum <= 64 && payloadTokens.length - 1 >= dlcNum) {
+      // Treat first payload token as DLC only when it's a decimal number (1-64) 
+      // or a hex value that matches expected byte count.
+      // Exclude '00' since it's commonly a valid data byte, not DLC.
+      if (!Number.isNaN(dlcNum) && dlcNum > 0 && dlcNum <= 64 && 
+          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
         dataTokenStart = 1;
       }
     }
