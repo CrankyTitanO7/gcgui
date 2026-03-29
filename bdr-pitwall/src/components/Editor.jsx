@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function Editor({
   shapes,
@@ -93,6 +93,17 @@ export default function Editor({
 
   const handleWheel = (e) => {
     if (e.ctrlKey || e.metaKey) return
+    
+    // Check if the wheel event target is inside a grid-shape widget
+    // If so, allow native scrolling instead of zooming
+    const target = e.target
+    const isInsideWidget = target.closest('.grid-shape')
+    
+    if (isInsideWidget) {
+      // Don't prevent default - allow native scrolling in widgets
+      return
+    }
+    
     e.preventDefault()
     const delta = e.deltaY
     const factor = delta > 0 ? 0.95 : 1.05
@@ -160,45 +171,47 @@ export default function Editor({
               onOpenShapeMenu({ id: s.id, x: ev.clientX, y: ev.clientY })
           }}
         >
-          <div className="shape-body" style={{ width: '100%', height: '100%', fontSize: `${zoom}em` }}>
+          <div className="shape-body" style={{ width: '100%', height: '100%', fontSize: `${zoom}em`, position: 'relative' }}>
             {renderShape ? renderShape(s) : null}
+            <div
+              className="grid-resize-handle"
+              style={{
+                position: 'sticky',
+                right: 0,
+                bottom: 0,
+                float: 'right',
+                width: 16,
+                height: 16,
+                background: '#3b82f6',
+                cursor: 'nwse-resize',
+                opacity: selectedId === s.id ? 1 : 0,
+                transition: 'opacity 0.2s',
+                marginTop: -16,
+              }}
+              onMouseDown={(ev) => {
+                ev.stopPropagation()
+                const startX = ev.clientX
+                const startY = ev.clientY
+                const startSize = { width: s.width, height: s.height }
+                
+                const onMove = (e2) => {
+                  const dw = (e2.clientX - startX) / zoom
+                  const dh = (e2.clientY - startY) / zoom
+                  const newWidth = Math.max(gridSize, snapToGrid(startSize.width + dw))
+                  const newHeight = Math.max(gridSize, snapToGrid(startSize.height + dh))
+                  onUpdateShape(s.id, { width: newWidth, height: newHeight })
+                }
+                
+                const onUp = () => {
+                  window.removeEventListener('mousemove', onMove)
+                  window.removeEventListener('mouseup', onUp)
+                }
+                
+                window.addEventListener('mousemove', onMove)
+                window.addEventListener('mouseup', onUp)
+              }}
+            />
           </div>
-          <div
-            className="grid-resize-handle"
-            style={{
-              position: 'absolute',
-              right: -5,
-              bottom: -5,
-              width: 16,
-              height: 16,
-              background: '#3b82f6',
-              cursor: 'nwse-resize',
-              opacity: selectedId === s.id ? 1 : 0,
-              transition: 'opacity 0.2s',
-            }}
-            onMouseDown={(ev) => {
-              ev.stopPropagation()
-              const startX = ev.clientX
-              const startY = ev.clientY
-              const startSize = { width: s.width, height: s.height }
-              
-              const onMove = (e2) => {
-                const dw = (e2.clientX - startX) / zoom
-                const dh = (e2.clientY - startY) / zoom
-                const newWidth = Math.max(gridSize, snapToGrid(startSize.width + dw))
-                const newHeight = Math.max(gridSize, snapToGrid(startSize.height + dh))
-                onUpdateShape(s.id, { width: newWidth, height: newHeight })
-              }
-              
-              const onUp = () => {
-                window.removeEventListener('mousemove', onMove)
-                window.removeEventListener('mouseup', onUp)
-              }
-              
-              window.addEventListener('mousemove', onMove)
-              window.addEventListener('mouseup', onUp)
-            }}
-          />
         </div>
       ))}
     </div>
