@@ -45,7 +45,7 @@ export const CANDataContext = createContext();
 
 const CAN_MESSAGE_TYPES = {
   
-  '0x20': {
+  '0x202C': {
     name: 'GeneralData1',
     fields: ['ERPM', 'DutyCycle', 'InputVoltage'],
     encoding: {
@@ -54,7 +54,7 @@ const CAN_MESSAGE_TYPES = {
       InputVoltage: { bytes: [6,7],     type: 'int16be', scale: 1,   unit: 'V',    note: 'DC bus voltage' },
     }
   },
-  '0x21': {
+  '0x212C': {
     name: 'GeneralData2',
     fields: ['ACCurrent', 'DCCurrent'],
     encoding: {
@@ -62,7 +62,7 @@ const CAN_MESSAGE_TYPES = {
       DCCurrent: { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'Adc', note: '+ running, - regen' },
     }
   },
-  '0x22': {
+  '0x222C': {
     name: 'GeneralData3',
     fields: ['ControllerTemp', 'MotorTemp', 'FaultCode'],
     encoding: {
@@ -71,7 +71,7 @@ const CAN_MESSAGE_TYPES = {
       FaultCode:      { bytes: [4],   type: 'uint8',   scale: 1,   unit: '#',  note: '0=None 1=Overvolt 2=Undervolt 3=DRV 4=Overcurrent 5=CTLR Overtemp 6=Motor Overtemp 7=Sensor wire 8=Sensor general 9=CAN cmd error 0xA=Analog input error' },
     }
   },
-  '0x23': {
+  '0x232C': {
     name: 'GeneralData4',
     fields: ['Id', 'Iq'],
     encoding: {
@@ -79,7 +79,7 @@ const CAN_MESSAGE_TYPES = {
       Iq: { bytes: [4,5,6,7], type: 'int32be', scale: 0.01, unit: 'Apk', note: 'FOC q-axis current' },
     }
   },
-  '0x24': {
+  '0x242C': {
     name: 'GeneralData5',
     fields: ['Throttle', 'Brake', 'DigitalInputs', 'DigitalOutputs', 'DriveEnable', 'LimitFlags', 'CANMapVersion'],
     encoding: {
@@ -110,7 +110,7 @@ const CAN_MESSAGE_TYPES = {
       CANMapVersion:  { bytes: [7],   type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 25 → v2.5' },
     }
   },
-  '0x1f': {
+  '0x1f2C': {
     name: 'GeneralData6',
     fields: ['ControlMode', 'TargetIq', 'MotorPosition', 'isMotorStill'],
     encoding: {
@@ -120,7 +120,7 @@ const CAN_MESSAGE_TYPES = {
       isMotorStill:  { bytes: [5],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=still, 0=rotating' },
     }
   },
-  '0x25': {
+  '0x252C': {
     name: 'ACCurrentLimits',
     fields: ['MaxACCurrent', 'AvMaxACCurrent', 'MinACCurrent', 'AvMinACCurrent'],
     encoding: {
@@ -130,7 +130,7 @@ const CAN_MESSAGE_TYPES = {
       AvMinACCurrent: { bytes: [6,7], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Available min AC current (derated by limits)' },
     }
   },
-  '0x26': {
+  '0x262C': {
     name: 'DCCurrentLimits',
     fields: ['MaxDCCurrent', 'AvMaxDCCurrent', 'MinDCCurrent', 'AvMinDCCurrent'],
     encoding: {
@@ -279,7 +279,7 @@ const CAN_MESSAGE_TYPES = {
         type: 'uint8', 
         scale: 1, 
         unit: '#', 
-        note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 1–7 are 0xFF.' 
+        note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 1-7 are 0xFF.' 
       }
     }
   }
