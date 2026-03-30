@@ -45,7 +45,7 @@ export const CANDataContext = createContext();
 
 const CAN_MESSAGE_TYPES = {
   
-  '0x202C': {
+  '0x202c': {
     name: 'GeneralData1',
     fields: ['ERPM', 'DutyCycle', 'InputVoltage'],
     encoding: {
@@ -54,15 +54,15 @@ const CAN_MESSAGE_TYPES = {
       InputVoltage: { bytes: [6,7],     type: 'int16be', scale: 1,   unit: 'V',    note: 'DC bus voltage' },
     }
   },
-  '0x212C': {
+  '0x212c': {
     name: 'GeneralData2',
     fields: ['ACCurrent', 'DCCurrent'],
     encoding: {
-      ACCurrent: { bytes: [0,1], type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
-      DCCurrent: { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'Adc', note: '+ running, - regen' },
+      ACCurrent: { bytes: [0,1], type: 'int16be', scale: .10, unit: 'Apk', note: '+ running, - regen' },
+      DCCurrent: { bytes: [2,3], type: 'int16be', scale: .10, unit: 'Adc', note: '+ running, - regen' },
     }
   },
-  '0x222C': {
+  '0x222c': {
     name: 'GeneralData3',
     fields: ['ControllerTemp', 'MotorTemp', 'FaultCode'],
     encoding: {
@@ -71,7 +71,7 @@ const CAN_MESSAGE_TYPES = {
       FaultCode:      { bytes: [4],   type: 'uint8',   scale: 1,   unit: '#',  note: '0=None 1=Overvolt 2=Undervolt 3=DRV 4=Overcurrent 5=CTLR Overtemp 6=Motor Overtemp 7=Sensor wire 8=Sensor general 9=CAN cmd error 0xA=Analog input error' },
     }
   },
-  '0x232C': {
+  '0x232c': {
     name: 'GeneralData4',
     fields: ['Id', 'Iq'],
     encoding: {
@@ -79,7 +79,7 @@ const CAN_MESSAGE_TYPES = {
       Iq: { bytes: [4,5,6,7], type: 'int32be', scale: 0.01, unit: 'Apk', note: 'FOC q-axis current' },
     }
   },
-  '0x242C': {
+  '0x242c': {
     name: 'GeneralData5',
     fields: ['Throttle', 'Brake', 'DigitalInputs', 'DigitalOutputs', 'DriveEnable', 'LimitFlags', 'CANMapVersion'],
     encoding: {
@@ -110,7 +110,7 @@ const CAN_MESSAGE_TYPES = {
       CANMapVersion:  { bytes: [7],   type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 25 → v2.5' },
     }
   },
-  '0x1f2C': {
+  '0x1f2c': {
     name: 'GeneralData6',
     fields: ['ControlMode', 'TargetIq', 'MotorPosition', 'isMotorStill'],
     encoding: {
@@ -120,7 +120,7 @@ const CAN_MESSAGE_TYPES = {
       isMotorStill:  { bytes: [5],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=still, 0=rotating' },
     }
   },
-  '0x252C': {
+  '0x252c': {
     name: 'ACCurrentLimits',
     fields: ['MaxACCurrent', 'AvMaxACCurrent', 'MinACCurrent', 'AvMinACCurrent'],
     encoding: {
@@ -130,7 +130,7 @@ const CAN_MESSAGE_TYPES = {
       AvMinACCurrent: { bytes: [6,7], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Available min AC current (derated by limits)' },
     }
   },
-  '0x262C': {
+  '0x262c': {
     name: 'DCCurrentLimits',
     fields: ['MaxDCCurrent', 'AvMaxDCCurrent', 'MinDCCurrent', 'AvMinDCCurrent'],
     encoding: {
@@ -279,7 +279,7 @@ const CAN_MESSAGE_TYPES = {
         type: 'uint8', 
         scale: 1, 
         unit: '#', 
-        note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 1-7 are 0xFF.' 
+        note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 17 are 0xFF.' 
       }
     }
   }
@@ -418,7 +418,8 @@ const useCANData = () => {
       // or a hex value that matches expected byte count.
       // Exclude '00' since it's commonly a valid data byte, not DLC.
       if (!Number.isNaN(dlcNum) && dlcNum > 0 && dlcNum <= 64 && 
-          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
+          // /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
+          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 === dlcNum) {
         dataTokenStart = 1;
       }
     }
