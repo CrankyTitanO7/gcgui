@@ -602,8 +602,30 @@
   border-radius: 10px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   background: #11152f;
-  overflow: hidden;
+  overflow: auto;
   transition: box-shadow 0.2s ease, border 0.2s ease;
+}
+
+.grid-shape::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.grid-shape::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.grid-shape::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.grid-shape::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.grid-shape::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .grid-shape:hover {
