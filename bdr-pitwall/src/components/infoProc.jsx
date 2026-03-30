@@ -4,43 +4,100 @@ import { createContext, useContext, useEffect, useState } from 'react';
 export const CANDataContext = createContext();
 
 const CAN_MESSAGE_TYPES = {
-  '0x20': {
+  
+  '0x202c': {
     name: 'GeneralData1',
     fields: ['ERPM', 'DutyCycle', 'InputVoltage'],
     encoding: {
-      ERPM:         { bytes: [0,1,2,3], type: 'int32be',  scale: 1,   unit: 'ERPM', note: 'Motor RPM * pole pairs' },
-      DutyCycle:    { bytes: [4,5],     type: 'int16be',  scale: 0.1, unit: '%',    note: '+ running, - regen' },
-      InputVoltage: { bytes: [6,7],     type: 'int16be',  scale: 1,   unit: 'V',    note: 'DC bus voltage' }
+      ERPM:         { bytes: [0,1,2,3], type: 'int32be', scale: 1,   unit: 'ERPM', note: 'Electrical RPM = Motor RPM * pole pairs' },
+      DutyCycle:    { bytes: [4,5],     type: 'int16be', scale: 0.1, unit: '%',    note: '+ running, - regen' },
+      InputVoltage: { bytes: [6,7],     type: 'int16be', scale: 1,   unit: 'V',    note: 'DC bus voltage' },
     }
   },
-  '0x22': {
+  '0x212c': {
+    name: 'GeneralData2',
+    fields: ['ACCurrent', 'DCCurrent'],
+    encoding: {
+      ACCurrent: { bytes: [0,1], type: 'int16be', scale: .10, unit: 'Apk', note: '+ running, - regen' },
+      DCCurrent: { bytes: [2,3], type: 'int16be', scale: .10, unit: 'Adc', note: '+ running, - regen' },
+    }
+  },
+  '0x222c': {
     name: 'GeneralData3',
     fields: ['ControllerTemp', 'MotorTemp', 'FaultCode'],
     encoding: {
       ControllerTemp: { bytes: [0,1], type: 'int16be', scale: 0.1, unit: '°C', note: 'Inverter semiconductor temp' },
       MotorTemp:      { bytes: [2,3], type: 'int16be', scale: 0.1, unit: '°C', note: 'Motor temp via inverter' },
-      FaultCode:      { bytes: [4],   type: 'uint8',   scale: 1,   unit: '#',  note: '0 = no fault; see fault chart' },
+      FaultCode:      { bytes: [4],   type: 'uint8',   scale: 1,   unit: '#',  note: '0=None 1=Overvolt 2=Undervolt 3=DRV 4=Overcurrent 5=CTLR Overtemp 6=Motor Overtemp 7=Sensor wire 8=Sensor general 9=CAN cmd error 0xA=Analog input error' },
     }
   },
-  '0x23': {
+  '0x232c': {
     name: 'GeneralData4',
     fields: ['Id', 'Iq'],
     encoding: {
       Id: { bytes: [0,1,2,3], type: 'int32be', scale: 0.01, unit: 'Apk', note: 'FOC d-axis current' },
-      Iq: { bytes: [4,5,6,7], type: 'int32be', scale: 0.01, unit: 'Apk', note: 'FOC q-axis current' }
+      Iq: { bytes: [4,5,6,7], type: 'int32be', scale: 0.01, unit: 'Apk', note: 'FOC q-axis current' },
     }
   },
-  '0x24': {
+  '0x242c': {
     name: 'GeneralData5',
     fields: ['Throttle', 'Brake', 'DigitalInputs', 'DigitalOutputs', 'DriveEnable', 'LimitFlags', 'CANMapVersion'],
     encoding: {
       Throttle:       { bytes: [0],   type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; -128 to 127' },
       Brake:          { bytes: [1],   type: 'int8',   scale: 1, unit: '%', note: 'From analog input or CAN2; -128 to 127' },
-      DigitalInputs:  { bytes: [2],   type: 'uint8',  scale: 1, unit: '#', note: 'Bits 0-3: DI1-DI4 (1 = active)' },
-      DigitalOutputs: { bytes: [2],   type: 'uint8',  scale: 1, unit: '#', note: 'Bits 4-7: DO1-DO4 (1 = active)' },
-      DriveEnable:    { bytes: [3],   type: 'uint8',  scale: 1, unit: '#', note: 'Bit 0: 1 = drive enabled' },
-      LimitFlags:     { bytes: [4,5], type: 'uint16', scale: 1, unit: '#', note: 'Bits: CapTemp/DCLim/DriveEnLim/IGBTAccel/IGBTTemp/VinLim/MtrAccelTemp/MtrTemp/RPMMin/RPMMax/PowerLim' },
-      CANMapVersion:  { bytes: [7],   type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 23 → v2.3' }
+      DigitalInputs:  { bytes: [2],   type: 'uint8',  scale: 1, unit: '#', note: 'Bits 0-3: DI1-DI4 (1=active)',
+        bits: { 0: 'DI1', 1: 'DI2', 2: 'DI3', 3: 'DI4' }
+      },
+      DigitalOutputs: { bytes: [2],   type: 'uint8',  scale: 1, unit: '#', note: 'Bits 4-7: DO1-DO4 (1=active)',
+        bits: { 4: 'DO1', 5: 'DO2', 6: 'DO3', 7: 'DO4' }
+      },
+      DriveEnable:    { bytes: [3],   type: 'uint8',  scale: 1, unit: '#', note: '1=drive enabled, 0=disabled' },
+      LimitFlags:     { bytes: [4,5], type: 'uint16', scale: 1, unit: '#', note: 'Active inverter limits',
+        bits: {
+          0: 'Cap Temp',
+          1: 'DC Current',
+          2: 'Drive Enable',
+          3: 'IGBT Accel Temp',
+          4: 'IGBT Temp',
+          5: 'Input Voltage',
+          6: 'Motor Accel Temp',
+          7: 'Motor Temp',
+          8: 'RPM Min',
+          9: 'RPM Max',
+          10: 'Power Limit',
+        }
+      },
+      CANMapVersion:  { bytes: [7],   type: 'uint8',  scale: 1, unit: '#', note: 'e.g. 25 → v2.5' },
+    }
+  },
+  '0x1f2c': {
+    name: 'GeneralData6',
+    fields: ['ControlMode', 'TargetIq', 'MotorPosition', 'isMotorStill'],
+    encoding: {
+      ControlMode:   { bytes: [0],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=Speed 2=Current 3=CurrentBrake 4=Position 7=None' },
+      TargetIq:      { bytes: [1,2], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Target Iq current, excludes limits' },
+      MotorPosition: { bytes: [3,4], type: 'int16be', scale: 0.1, unit: '°',   note: 'Motor position in degrees (0-359)' },
+      isMotorStill:  { bytes: [5],   type: 'uint8',   scale: 1,   unit: '#',   note: '1=still, 0=rotating' },
+    }
+  },
+  '0x252c': {
+    name: 'ACCurrentLimits',
+    fields: ['MaxACCurrent', 'AvMaxACCurrent', 'MinACCurrent', 'AvMinACCurrent'],
+    encoding: {
+      MaxACCurrent:   { bytes: [0,1], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Configured max AC current' },
+      AvMaxACCurrent: { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Available max AC current (derated by limits)' },
+      MinACCurrent:   { bytes: [4,5], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Configured min AC current' },
+      AvMinACCurrent: { bytes: [6,7], type: 'int16be', scale: 0.1, unit: 'Apk', note: 'Available min AC current (derated by limits)' },
+    }
+  },
+  '0x262c': {
+    name: 'DCCurrentLimits',
+    fields: ['MaxDCCurrent', 'AvMaxDCCurrent', 'MinDCCurrent', 'AvMinDCCurrent'],
+    encoding: {
+      MaxDCCurrent:   { bytes: [0,1], type: 'int16be', scale: 0.1, unit: 'Adc', note: 'Configured max DC current' },
+      AvMaxDCCurrent: { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'Adc', note: 'Available max DC current (derated by limits)' },
+      MinDCCurrent:   { bytes: [4,5], type: 'int16be', scale: 0.1, unit: 'Adc', note: 'Configured min DC current' },
+      AvMinDCCurrent: { bytes: [6,7], type: 'int16be', scale: 0.1, unit: 'Adc', note: 'Available min DC current (derated by limits)' },
     }
   },
 
@@ -54,7 +111,6 @@ const CAN_MESSAGE_TYPES = {
       RelayState: {
         bytes: [0,1], type: 'uint16', scale: 1, unit: '#',
         note: 'Relay and I/O signal states',
-        // bit index → label. 1 = active/enabled.
         bits: {
           0:  'Discharge relay',
           1:  'Charge relay',
@@ -71,7 +127,7 @@ const CAN_MESSAGE_TYPES = {
           12: 'MP Output #3',
           13: 'MP Output #4',
           14: 'MP Enable',
-          15: 'MP Output #1'
+          15: 'MP Output #1',
         }
       },
       FailsafeStatus: {
@@ -89,7 +145,7 @@ const CAN_MESSAGE_TYPES = {
           12: 'Polarization model 1',
           13: 'Polarization model 2',
           14: 'Polarization comp inactive',
-          15: 'Charge Mode via CAN'
+          15: 'Charge Mode via CAN',
         }
       },
       DTC_Status1: {
@@ -106,7 +162,7 @@ const CAN_MESSAGE_TYPES = {
           7: 'P0A10 Pack Too Hot',
           8: 'P0A95 HV Interlock',
           9: 'P0AA1 Precharge',
-          10: 'P0A11 Abnormal SOC'
+          10: 'P0A11 Abnormal SOC',
         }
       },
       DTC_Status2: {
@@ -128,40 +184,69 @@ const CAN_MESSAGE_TYPES = {
           12: 'P0560 Redundant Power',
           13: 'P0AA6 HV Isolation',
           14: 'P0A05 Input Power',
-          15: 'P0A06 Charge Limit'
+          15: 'P0A06 Charge Limit',
         }
       }
     }
   },
-  '0x61': { // probably
-    name: 'BMS2',
+  '0x61': {
+    name: 'BMS_CellVoltages',
     fields: ['LowCellVoltage', 'HighCellVoltage', 'AvgCellVoltage', 'HighID', 'LowID'],
     encoding: {
-      LowCellVoltage: { bytes: [0,1],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Lowest cell voltage' },
-      HighCellVoltage: { bytes: [2,3],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Highest cell voltage' },
-      AvgCellVoltage: { bytes: [4,5],   type: 'uint16be', scale: 0.0001, unit: 'V', note: 'Average cell voltage' },
-      HighID: { bytes: [6],   type: 'uint8', scale: 1, unit: '#', note: 'Highest cell ID' },
-      LowID: { bytes: [7],   type: 'uint8', scale: 1, unit: '#', note: 'Lowest cell ID' },
+      LowCellVoltage:  { bytes: [0,1], type: 'uint16', scale: 0.0001, unit: 'V', note: 'Lowest cell voltage' },
+      HighCellVoltage: { bytes: [2,3], type: 'uint16', scale: 0.0001, unit: 'V', note: 'Highest cell voltage' },
+      AvgCellVoltage:  { bytes: [4,5], type: 'uint16', scale: 0.0001, unit: 'V', note: 'Average cell voltage' },
+      HighID:          { bytes: [6],   type: 'uint8',  scale: 1,      unit: '#', note: 'Highest cell ID' },
+      LowID:           { bytes: [7],   type: 'uint8',  scale: 1,      unit: '#', note: 'Lowest cell ID' },
     }
   },
 
   // ---------------------------------------------------------------------------
   // Radio status (ESP32 receiver)
   // ---------------------------------------------------------------------------
-  // radio can messages
   '0x31': {
-  name: 'RadioStatus',
-  fields: ['Opcode', 'RSSI'],
-  encoding: {
-    Opcode: { bytes: [0,1], type: 'int16be', scale: 1,   unit: '#',   note: 'RadioLib state code. 0 = OK' },
-    RSSI:   { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'dBm', note: 'Signal strength × 10' }
+    name: 'RadioStatus',
+    fields: ['Opcode', 'RSSI'],
+    encoding: {
+      Opcode: { bytes: [0,1], type: 'int16be', scale: 1,   unit: '#',   note: 'RadioLib state code. 0 = OK' },
+      RSSI:   { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'dBm', note: 'Signal strength × 10' },
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // other important need to record messages
+  // ---------------------------------------------------------------------------
+
+  '0x52C': {
+    name: 'Pedalbox',
+    fields: ['ACCurrent'],
+    encoding: {
+      ACCurrent: { 
+        bytes: [0, 1], 
+        type: 'int16be', 
+        scale: 1, // Assumed 1 unless it needs a decimal multiplier
+        unit: '%', 
+        note: 'Relays accelerator press. Sent every 10ms. Bytes 2–7 are 0xFF.' 
+      }
+    }
+  },
+  '0x7FE': {
+    name: 'Dashboard',
+    fields: ['RTD'],
+    encoding: {
+      RTD: { 
+        bytes: [0], 
+        type: 'uint8', 
+        scale: 1, 
+        unit: '#', 
+        note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 17 are 0xFF.' 
+      }
+    }
   }
-},
 };
 
 // ---------------------------------------------------------------------------
-// Bitfield display sub-component
-// Shows each defined bit as a coloured pill: green = 1, dark = 0.
+// Bitfield pill display
 // ---------------------------------------------------------------------------
 const BitfieldDisplay = ({ raw, bits }) => {
   if (raw === null || raw === undefined) {
@@ -171,12 +256,7 @@ const BitfieldDisplay = ({ raw, bits }) => {
   const bitIndices = Object.keys(bits).map(Number).sort((a, b) => a - b);
 
   return (
-    <div style={{
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '3px',
-      marginTop: '4px'
-    }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '4px' }}>
       {bitIndices.map(bit => {
         const active = ((raw >> bit) & 1) === 1;
         return (
@@ -191,33 +271,53 @@ const BitfieldDisplay = ({ raw, bits }) => {
               border: `1px solid ${active ? '#4caf50' : '#444'}`,
               borderRadius: '3px',
               padding: '2px 5px',
-              cursor: 'default'
             }}
           >
-            {/* indicator dot */}
             <div style={{
               width: '6px',
               height: '6px',
               borderRadius: '50%',
               background: active ? '#4caf50' : '#555',
-              flexShrink: 0
+              flexShrink: 0,
             }} />
-            <span style={{
-              fontSize: '8px',
-              color: active ? '#b9f0b9' : '#666',
-              whiteSpace: 'nowrap'
-            }}>
+            <span style={{ fontSize: '8px', color: active ? '#b9f0b9' : '#666', whiteSpace: 'nowrap' }}>
               {bits[bit]}
             </span>
           </div>
         );
       })}
-      {/* raw hex in corner */}
       <div style={{ fontSize: '8px', color: '#555', alignSelf: 'center', marginLeft: '2px' }}>
         0x{raw.toString(16).toUpperCase().padStart(4, '0')}
       </div>
     </div>
   );
+};
+
+// ---------------------------------------------------------------------------
+// Decoder
+// ---------------------------------------------------------------------------
+const decodeFieldValue = (buffer, encoding) => {
+  const { bytes, type } = encoding;
+  if (!bytes || bytes.length === 0 || Math.max(...bytes) >= buffer.length) return null;
+
+  const selected = new Uint8Array(bytes.map(pos => buffer[pos]));
+  const view = new DataView(selected.buffer);
+
+  switch (type) {
+    case 'int32be':   return selected.length < 4 ? null : view.getInt32(0, false);
+    case 'uint32':
+    case 'uint32be':  return selected.length < 4 ? null : view.getUint32(0, false);
+    case 'int16be':   return selected.length < 2 ? null : view.getInt16(0, false);
+    case 'uint16':
+    case 'uint16be':  return selected.length < 2 ? null : view.getUint16(0, false);
+    case 'int8':      return view.getInt8(0);
+    case 'uint8':     return view.getUint8(0);
+    default: {
+      let value = 0;
+      selected.forEach(b => { value = value * 256 + b; });
+      return value;
+    }
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -232,22 +332,13 @@ const useCANData = () => {
     const initialData = {};
     Object.keys(CAN_MESSAGE_TYPES).forEach(id => {
       const message = CAN_MESSAGE_TYPES[id];
-      initialData[id] = {
-        id: id,
-        name: message.name,
-        timestamp: null,
-        fields: {}
-      };
-      message.fields.forEach(field => {
-        initialData[id].fields[field] = null;
-      });
+      initialData[id] = { id, name: message.name, timestamp: null, fields: {} };
+      message.fields.forEach(field => { initialData[id].fields[field] = null; });
     });
     return initialData;
   };
 
-  useEffect(() => {
-    setCANData(initializeCANData());
-  }, []);
+  useEffect(() => { setCANData(initializeCANData()); }, []);
 
   const parseCANMessage = (rawMessage) => {
     try {
@@ -295,22 +386,27 @@ const useCANData = () => {
       // or a hex value that matches expected byte count.
       // Exclude '00' since it's commonly a valid data byte, not DLC.
       if (!Number.isNaN(dlcNum) && dlcNum > 0 && dlcNum <= 64 && 
-          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
+          // /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
+          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 === dlcNum) {
         dataTokenStart = 1;
       }
     }
 
-    const dataBytes = payloadTokens
-      .slice(dataTokenStart)
-      .filter(token => /^[0-9a-fA-F]{1,2}$/.test(token));
+      const dataBytes = payloadTokens
+        .slice(dataTokenStart)
+        .filter(token => /^[0-9a-fA-F]{1,2}$/.test(token));
 
       if (!CAN_MESSAGE_TYPES[id] || dataBytes.length === 0) {
         console.warn('Unknown CAN ID:', id);
         return null;
       }
+      if (!CAN_MESSAGE_TYPES[id] || dataBytes.length === 0) {
+        console.warn('Unknown CAN ID:', id);
+        return null;
+      }
 
-    const messageConfig = CAN_MESSAGE_TYPES[id];
-    const dataBuffer = new Uint8Array(dataBytes.map(b => parseInt(b, 16)));
+      const messageConfig = CAN_MESSAGE_TYPES[id];
+      const dataBuffer = new Uint8Array(dataBytes.map(b => parseInt(b, 16)));
 
     const decodeFieldValue = (buffer, encoding) => {
       const { bytes, type } = encoding;
@@ -399,16 +495,12 @@ const useCANData = () => {
     setConnectionStatus(status);
   };
 
-  return {
-    canData,
-    lastUpdate,
-    connectionStatus,
-    handleSerialData,
-    handleConnectionStatus,
-    CAN_MESSAGE_TYPES
-  };
+  return { canData, lastUpdate, connectionStatus, handleSerialData, handleConnectionStatus, CAN_MESSAGE_TYPES };
 };
 
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -426,9 +518,7 @@ export const InfoProcProvider = ({ children, isRunning = true }) => {
 
     if (window.electronAPI.onSerialData) {
       cleanupData = window.electronAPI.onSerialData((data) => {
-        if (!isRunning) {
-          return;
-        }
+        if (!isRunning) return;
         canData.handleSerialData(data);
       });
     }
@@ -449,11 +539,12 @@ export const InfoProcProvider = ({ children, isRunning = true }) => {
   );
 };
 
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
 export const useCANDataHook = () => {
   const context = useContext(CANDataContext);
-  if (!context) {
-    throw new Error('useCANDataHook must be used within a InfoProcProvider');
-  }
+  if (!context) throw new Error('useCANDataHook must be used within a InfoProcProvider');
   return context;
 };
 
@@ -467,9 +558,9 @@ export const CANDataDebugger = () => {
   const handleFieldHover = (fieldName, encoding) => {
     setHoveredField({
       fieldName,
-      note: encoding ? encoding.note : '',
-      type: encoding ? encoding.type : '',
-      bytes: encoding ? encoding.bytes : []
+      note:  encoding?.note  ?? '',
+      type:  encoding?.type  ?? '',
+      bytes: encoding?.bytes ?? [],
     });
   };
 
@@ -477,15 +568,9 @@ export const CANDataDebugger = () => {
 
   return (
     <div className="can-data-debugger" style={{
-      background: '#1a1a1a',
-      border: '1px solid #333',
-      borderRadius: '8px',
-      padding: '10px',
-      color: '#fff',
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      margin: '10px 0',
-      position: 'relative'
+      background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px',
+      padding: '10px', color: '#fff', fontFamily: 'monospace', fontSize: '12px',
+      margin: '10px 0', position: 'relative',
     }}>
       <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#4caf50' }}>
         motor inverter CAN Data Parser
@@ -523,7 +608,7 @@ export const CANDataDebugger = () => {
               gap: '3px',
               maxHeight: '500px',
               overflow: 'auto',
-              paddingRight: '4px'
+              paddingRight: '4px',
             }}>
               {messageConfig.fields.map(fieldName => {
                 const fieldData = message.fields[fieldName];
@@ -550,7 +635,7 @@ export const CANDataDebugger = () => {
                       fontSize: '10px',
                       ...gridStyle
                     }}
-                    onMouseEnter={() => !isBitfield && encoding && encoding.note && handleFieldHover(fieldName, encoding)}
+                    onMouseEnter={() => !isBitfield && encoding?.note && handleFieldHover(fieldName, encoding)}
                     onMouseLeave={handleFieldLeave}
                   >
                     {/* Field name */}
@@ -564,7 +649,7 @@ export const CANDataDebugger = () => {
                       whiteSpace: 'nowrap'
                     }}>
                       {fieldName}
-                      {isBitfield && encoding.note && (
+                      {isBitfield && encoding?.note && (
                         <span style={{ fontWeight: 'normal', marginLeft: '6px', color: '#555' }}>
                           — {encoding.note}
                         </span>
@@ -572,45 +657,36 @@ export const CANDataDebugger = () => {
                     </div>
 
                     {isBitfield ? (
-                      // Bitfield: expand all bits as pills
                       <BitfieldDisplay raw={rawValue} bits={encoding.bits} />
                     ) : (
-                      // Normal field: raw × scale + value + unit
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
-                        <div style={{ fontSize: '8px', color: '#666', fontFamily: 'monospace', flexShrink: 0 }}>
-                          {rawValue !== null ? `${rawValue} × ${scale}` : 'N/A'}
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                          <div style={{ fontSize: '8px', color: '#666', fontFamily: 'monospace', flexShrink: 0 }}>
+                            {rawValue !== null ? `${rawValue} × ${scale}` : 'N/A'}
+                          </div>
+                          <div style={{
+                            fontSize: '14px', fontWeight: 'bold',
+                            color: scaledValue !== null ? '#fff' : '#666',
+                            flex: 1, textAlign: 'right',
+                          }}>
+                            {scaledValue !== null ? scaledValue : 'N/A'}
+                          </div>
+                          <div style={{ fontSize: '9px', color: '#aaa', fontWeight: 'normal', flexShrink: 0 }}>
+                            {unit}
+                          </div>
                         </div>
-                        <div style={{
-                          fontSize: '14px',
-                          fontWeight: 'bold',
-                          color: fieldData && fieldData.value !== null ? '#fff' : '#666',
-                          flex: 1,
-                          textAlign: 'right'
-                        }}>
-                          {scaledValue !== null ? scaledValue : 'N/A'}
-                        </div>
-                        <div style={{ fontSize: '9px', color: '#aaa', fontWeight: 'normal', flexShrink: 0 }}>
-                          {unit}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Note for non-bitfield fields */}
-                    {!isBitfield && encoding && encoding.note && (
-                      <div style={{
-                        fontSize: '7px',
-                        color: '#888',
-                        marginTop: '1px',
-                        lineHeight: '1.1',
-                        maxHeight: '15px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical'
-                      }}>
-                        {encoding.note}
-                      </div>
+                        {encoding?.note && (
+                          <div style={{
+                            fontSize: '7px', color: '#888', marginTop: '1px',
+                            lineHeight: '1.1', maxHeight: '15px', overflow: 'hidden',
+                            textOverflow: 'ellipsis', display: '-webkit-box',
+                            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                          }}>
+                            {encoding.note}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -620,22 +696,16 @@ export const CANDataDebugger = () => {
         );
       })}
 
-      {/* Hover popup (non-bitfield fields only) */}
+      {/* Hover popup (non-bitfield only) */}
       {hoveredField && (
         <div
           style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
+            position: 'fixed', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
-            background: '#2a2a2a',
-            border: '1px solid #666',
-            borderRadius: '6px',
-            padding: '15px',
+            background: '#2a2a2a', border: '1px solid #666',
+            borderRadius: '6px', padding: '15px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-            zIndex: 1000,
-            minWidth: '300px',
-            maxWidth: '400px'
+            zIndex: 1000, minWidth: '300px', maxWidth: '400px',
           }}
           onClick={handleFieldLeave}
         >
@@ -647,7 +717,7 @@ export const CANDataDebugger = () => {
               Type: {hoveredField.type}
             </div>
           )}
-          {hoveredField.bytes && hoveredField.bytes.length > 0 && (
+          {hoveredField.bytes?.length > 0 && (
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>
               Bytes: {hoveredField.bytes.join(', ')}
             </div>
