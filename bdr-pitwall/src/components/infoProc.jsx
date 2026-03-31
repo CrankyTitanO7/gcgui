@@ -1,50 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import './BMS.css';
 
-// Global context for CAN data
 export const CANDataContext = createContext();
 
-// CAN message types and their field mappings with byte specifications
-// const CAN_MESSAGE_TYPES = {
-//   '0x100': { 
-//     name: 'EngineData', 
-//     fields: [
-//       { name: 'RPM', bytes: 2, offset: 0, scale: 1, unit: 'RPM' },
-//       { name: 'Throttle', bytes: 1, offset: 2, scale: 1, unit: '%' },
-//       { name: 'EngineTemp', bytes: 1, offset: 3, scale: 1, unit: '°C' },
-//       { name: 'OilPressure', bytes: 1, offset: 4, scale: 0.1, unit: 'psi' }
-//     ]
-//   },
-//   '0x200': { 
-//     name: 'BatteryData', 
-//     fields: [
-//       { name: 'Voltage', bytes: 2, offset: 0, scale: 0.1, unit: 'V' },
-//       { name: 'Current', bytes: 2, offset: 2, scale: 0.1, unit: 'A' },
-//       { name: 'Temperature', bytes: 1, offset: 4, scale: 1, unit: '°C' },
-//       { name: 'SOC', bytes: 1, offset: 5, scale: 1, unit: '%' }
-//     ]
-//   },
-//   '0x300': { 
-//     name: 'SpeedData', 
-//     fields: [
-//       { name: 'Speed', bytes: 2, offset: 0, scale: 0.1, unit: 'km/h' },
-//       { name: 'Gear', bytes: 1, offset: 2, scale: 1, unit: '' },
-//       { name: 'Distance', bytes: 2, offset: 3, scale: 1, unit: 'km' },
-//       { name: 'TripTime', bytes: 1, offset: 5, scale: 1, unit: 'min' }
-//     ]
-//   },
-//   '0x400': { 
-//     name: 'SensorData', 
-//     fields: [
-//       { name: 'Pressure', bytes: 2, offset: 0, scale: 0.01, unit: 'bar' },
-//       { name: 'FlowRate', bytes: 2, offset: 2, scale: 0.1, unit: 'L/min' },
-//       { name: 'Level', bytes: 1, offset: 4, scale: 1, unit: '%' },
-//       { name: 'Status', bytes: 1, offset: 5, scale: 1, unit: '' }
-//     ]
-//   }
-// };
-
 const CAN_MESSAGE_TYPES = {
-  
   '0x202c': {
     name: 'GeneralData1',
     fields: ['ERPM', 'DutyCycle', 'InputVoltage'],
@@ -58,8 +17,8 @@ const CAN_MESSAGE_TYPES = {
     name: 'GeneralData2',
     fields: ['ACCurrent', 'DCCurrent'],
     encoding: {
-      ACCurrent: { bytes: [0,1], type: 'int16be', scale: .10, unit: 'Apk', note: '+ running, - regen' },
-      DCCurrent: { bytes: [2,3], type: 'int16be', scale: .10, unit: 'Adc', note: '+ running, - regen' },
+      ACCurrent: { bytes: [0,1], type: 'int16be', scale: 0.1, unit: 'Apk', note: '+ running, - regen' },
+      DCCurrent: { bytes: [2,3], type: 'int16be', scale: 0.1, unit: 'Adc', note: '+ running, - regen' },
     }
   },
   '0x222c': {
@@ -181,7 +140,11 @@ const CAN_MESSAGE_TYPES = {
           4:  'Charge interlock',
           5:  'Thermistor B-value invalid',
           6:  'Input power failsafe',
+          7:  'RESERVED',
           8:  'Contactors opened under load',
+          9:  'RESERVED',
+          10: 'RESERVED',
+          11: 'RESERVED',
           12: 'Polarization model 1',
           13: 'Polarization model 2',
           14: 'Polarization comp inactive',
@@ -254,35 +217,22 @@ const CAN_MESSAGE_TYPES = {
   },
 
   // ---------------------------------------------------------------------------
-  // other important need to record messages
+  // Other messages
   // ---------------------------------------------------------------------------
-
-  '0x52C': {
+  '0x52c': {
     name: 'Pedalbox',
     fields: ['ACCurrent'],
     encoding: {
-      ACCurrent: { 
-        bytes: [0, 1], 
-        type: 'int16be', 
-        scale: 1, // Assumed 1 unless it needs a decimal multiplier
-        unit: '%', 
-        note: 'Relays accelerator press. Sent every 10ms. Bytes 2–7 are 0xFF.' 
-      }
+      ACCurrent: { bytes: [0,1], type: 'int16be', scale: 1, unit: '%', note: 'Relays accelerator press. Sent every 10ms. Bytes 2–7 are 0xFF.' }
     }
   },
-  '0x7FE': {
+  '0x7fe': {
     name: 'Dashboard',
     fields: ['RTD'],
     encoding: {
-      RTD: { 
-        bytes: [0], 
-        type: 'uint8', 
-        scale: 1, 
-        unit: '#', 
-        note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 17 are 0xFF.' 
-      }
+      RTD: { bytes: [0], type: 'uint8', scale: 1, unit: '#', note: 'Ready-To-Drive status. Sent 5 times on press. 0x01 = Active. Bytes 1-7 are 0xFF.' }
     }
-  }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -304,21 +254,15 @@ const BitfieldDisplay = ({ raw, bits }) => {
             key={bit}
             title={`Bit ${bit}: ${bits[bit]}`}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '3px',
+              display: 'flex', alignItems: 'center', gap: '3px',
               background: active ? '#1b3a1b' : '#2a2a2a',
               border: `1px solid ${active ? '#4caf50' : '#444'}`,
-              borderRadius: '3px',
-              padding: '2px 5px',
+              borderRadius: '3px', padding: '2px 5px',
             }}
           >
             <div style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: active ? '#4caf50' : '#555',
-              flexShrink: 0,
+              width: '6px', height: '6px', borderRadius: '50%',
+              background: active ? '#4caf50' : '#555', flexShrink: 0,
             }} />
             <span style={{ fontSize: '8px', color: active ? '#b9f0b9' : '#666', whiteSpace: 'nowrap' }}>
               {bits[bit]}
@@ -403,26 +347,27 @@ const useCANData = () => {
       const rawId = parts[startIndex];
       const idNum = parseInt(rawId, 16);
       if (isNaN(idNum)) return null;
-      const id = '0x' + idNum.toString(16);
 
-    // Some logs include DLC after ID (e.g. "... 020 8 00 11 ..."), others don't.
-    const payloadTokens = parts.slice(startIndex + 1);
-    let dataTokenStart = 0;
-    if (payloadTokens.length > 0) {
-      const maybeDlc = payloadTokens[0];
-      const dlcNum = /^\d+$/.test(maybeDlc)
-        ? parseInt(maybeDlc, 10)
-        : (/^[0-9a-fA-F]+$/.test(maybeDlc) ? parseInt(maybeDlc, 16) : NaN);
+      // Always lowercase for consistent key matching
+      const id = '0x' + idNum.toString(16).toLowerCase();
 
-      // Treat first payload token as DLC only when it's a decimal number (1-64) 
-      // or a hex value that matches expected byte count.
-      // Exclude '00' since it's commonly a valid data byte, not DLC.
-      if (!Number.isNaN(dlcNum) && dlcNum > 0 && dlcNum <= 64 && 
-          // /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 >= dlcNum) {
-          /^\d+$/.test(maybeDlc) && payloadTokens.length - 1 === dlcNum) {
-        dataTokenStart = 1;
+      // DLC detection: skip first payload token if it's a decimal byte count
+      // that exactly matches the number of remaining tokens
+      const payloadTokens = parts.slice(startIndex + 1);
+      let dataTokenStart = 0;
+      if (payloadTokens.length > 0) {
+        const maybeDlc = payloadTokens[0];
+        const dlcNum = parseInt(maybeDlc, 10);
+        if (
+          /^\d+$/.test(maybeDlc) &&
+          !Number.isNaN(dlcNum) &&
+          dlcNum > 0 &&
+          dlcNum <= 64 &&
+          payloadTokens.length - 1 === dlcNum
+        ) {
+          dataTokenStart = 1;
+        }
       }
-    }
 
       const dataBytes = payloadTokens
         .slice(dataTokenStart)
@@ -455,6 +400,7 @@ const useCANData = () => {
       });
 
       return parsedData;
+
     } catch (error) {
       console.error('Error parsing CAN message:', error, rawMessage);
       return null;
@@ -545,7 +491,7 @@ export const CANDataDebugger = () => {
       margin: '10px 0', position: 'relative',
     }}>
       <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#4caf50' }}>
-        motor inverter CAN Data Parser
+        CAN Data Parser
       </div>
 
       <div style={{ marginBottom: '10px' }}>
@@ -561,6 +507,94 @@ export const CANDataDebugger = () => {
         const message = canData[id];
         if (!message) return null;
         const messageConfig = CAN_MESSAGE_TYPES[id];
+        const isBMS = message.name.startsWith('BMS');
+
+        if (isBMS) {
+          return (
+            <div key={id} className="bms-widget">
+              <div className="widget-header">
+                <div className="widget-name">
+                  {message.name} ({id})
+                </div>
+                {message.timestamp && (
+                  <span className="timestamp">
+                    {message.timestamp}
+                  </span>
+                )}
+              </div>
+              <div className="widget-content">
+                {messageConfig.fields.map(fieldName => {
+                  const fieldData   = message.fields[fieldName];
+                  const encoding    = messageConfig.encoding[fieldName];
+                  const isBitfield  = !!(encoding?.bits);
+                  const unit        = encoding?.unit  ?? '';
+                  const scale       = encoding?.scale ?? 1;
+                  const rawValue    = fieldData?.raw   ?? null;
+                  const scaledValue = fieldData?.value ?? null;
+
+                  return (
+                    <div
+                      key={fieldName}
+                      className={`field-item${isBitfield ? ' bitfield' : ''}`}
+                      onMouseEnter={() => !isBitfield && encoding?.note && handleFieldHover(fieldName, encoding)}
+                      onMouseLeave={handleFieldLeave}
+                    >
+                      <div className="field-name">
+                        {fieldName}
+                        {isBitfield && encoding?.note && (
+                          <span className="note"> — {encoding.note}</span>
+                        )}
+                      </div>
+
+                      {isBitfield ? (
+                        <div className="bitfield-display">
+                          {encoding.bits && Object.keys(encoding.bits).map(bit => {
+                            const bitNum = Number(bit);
+                            const active = rawValue !== null && ((rawValue >> bitNum) & 1) === 1;
+                            return (
+                              <div
+                                key={bit}
+                                title={`Bit ${bit}: ${encoding.bits[bit]}`}
+                                className={`bit-pill${active ? ' active' : ''}`}
+                              >
+                                <div className={`bit-indicator${active ? ' active' : ''}`} />
+                                <span className={`bit-label${active ? ' active' : ''}`}>
+                                  {encoding.bits[bit]}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <div className="bit-hex">
+                            {rawValue !== null ? `0x${rawValue.toString(16).toUpperCase().padStart(4, '0')}` : 'N/A'}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="field-value">
+                            <div className="raw-value">
+                              {rawValue !== null ? `${rawValue} × ${scale}` : 'N/A'}
+                            </div>
+                            <div className={`scaled-value${scaledValue === null ? ' na' : ''}`}>
+                              {scaledValue !== null ? scaledValue : 'N/A'}
+                            </div>
+                            <div className="unit">
+                              {unit}
+                            </div>
+                          </div>
+                          {encoding?.note && (
+                            <div className="field-note">
+                              {encoding.note}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div key={id} style={{ marginBottom: '15px', border: '1px solid #444', borderRadius: '4px', padding: '8px' }}>
@@ -582,14 +616,14 @@ export const CANDataDebugger = () => {
               paddingRight: '4px',
             }}>
               {messageConfig.fields.map(fieldName => {
-                const fieldData  = message.fields[fieldName];
-                const encoding   = messageConfig.encoding[fieldName];
-                const isBitfield = !!(encoding?.bits);
-                const unit       = encoding?.unit  ?? '';
-                const scale      = encoding?.scale ?? 1;
-                const rawValue   = fieldData?.raw   ?? null;
-                const scaledValue= fieldData?.value ?? null;
-                const gridStyle  = isBitfield ? { gridColumn: '1 / -1' } : {};
+                const fieldData   = message.fields[fieldName];
+                const encoding    = messageConfig.encoding[fieldName];
+                const isBitfield  = !!(encoding?.bits);
+                const unit        = encoding?.unit  ?? '';
+                const scale       = encoding?.scale ?? 1;
+                const rawValue    = fieldData?.raw   ?? null;
+                const scaledValue = fieldData?.value ?? null;
+                const gridStyle   = isBitfield ? { gridColumn: '1 / -1' } : {};
 
                 return (
                   <div
@@ -605,7 +639,6 @@ export const CANDataDebugger = () => {
                     onMouseEnter={() => !isBitfield && encoding?.note && handleFieldHover(fieldName, encoding)}
                     onMouseLeave={handleFieldLeave}
                   >
-                    {/* Field name */}
                     <div style={{
                       fontSize: '8px', color: '#888', marginBottom: '1px',
                       fontWeight: 'bold', textOverflow: 'ellipsis',
@@ -638,7 +671,6 @@ export const CANDataDebugger = () => {
                             {unit}
                           </div>
                         </div>
-
                         {encoding?.note && (
                           <div style={{
                             fontSize: '7px', color: '#888', marginTop: '1px',
@@ -659,7 +691,6 @@ export const CANDataDebugger = () => {
         );
       })}
 
-      {/* Hover popup (non-bitfield only) */}
       {hoveredField && (
         <div
           style={{

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import BMSStatusWidget from './components/BMS'
 import ControlBar from './components/ControlBar'
 import Editor from './components/Editor'
 import Palette from './components/Palette'
@@ -15,6 +16,7 @@ const COMPONENTS = [
   { type: 'line-plot', label: 'Line Plot', w: 8, h: 4, defaultName: 'Line Plot Widget', defaultField: 'speed' },
   { type: 'raw-serial', label: 'Raw Serial', w: 8, h: 6, defaultName: 'Raw Serial Widget', defaultField: '' },
   { type: 'can-data', label: 'motor inverter', w: 10, h: 6, defaultName: 'motor inverter CAN Data Widget', defaultField: '' },
+  { type: 'bms-status', label: 'BMS Status', w: 10, h: 8, defaultName: 'BMS Status', defaultField: '' },
   { type: 'radio', label: 'Radio', w: 6, h: 4, defaultName: 'Radio Widget', defaultField: '' },
 ]
 
@@ -251,32 +253,20 @@ function LinePlotWidget({ shape }) {
 
 function renderComponent(shape, runtimeState = {}) {
   switch (shape.type) {
-    case 'number': {
-      return <NumberWidget shape={shape} />;
-    }
-    case 'line-plot': {
-      return <LinePlotWidget shape={shape} />;
-    }
-    case 'raw-serial': {
-      return (
-        <RawSerialWidget
+    case 'number':     return <NumberWidget shape={shape} />;
+    case 'line-plot':  return <LinePlotWidget shape={shape} />;
+    case 'raw-serial': return <RawSerialWidget
           isRunning={runtimeState.isRunning}
           dataSource={runtimeState.dataSource}
-        />
-      )
-    }
-    case 'can-data': {
-      return (
-        <CANDataDebugger />
-      )
-    }
+        />;
+    case 'can-data':   return <CANDataDebugger />;
+    case 'bms-status': return <BMSStatusWidget shape={shape} />;
     case 'radio': {
       return (
         <RadioWidget />
       )
     }
-    default:
-      return <div className="fallback-block">Unsupported widget</div>
+    default:           return <div className="fallback-block">Unsupported widget</div>;
   }
 }
 
