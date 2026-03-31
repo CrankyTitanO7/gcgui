@@ -21,7 +21,7 @@ function BMSStatusWidget({ shape }) {
   };
 
   return (
-    <div className="fill" style={{ padding: '8px', overflowY: 'auto', fontFamily: 'monospace' }}>
+    <div className="fill bms-widget" style={{ padding: '8px', overflowY: 'auto', fontFamily: 'monospace' }}>
       <div className="widget-name">{shape.name}</div>
 
       {!bms || !bms.fields ? (

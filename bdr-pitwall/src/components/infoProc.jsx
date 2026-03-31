@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import './BMS.css';
 
 export const CANDataContext = createContext();
 
@@ -506,6 +507,94 @@ export const CANDataDebugger = () => {
         const message = canData[id];
         if (!message) return null;
         const messageConfig = CAN_MESSAGE_TYPES[id];
+        const isBMS = message.name.startsWith('BMS');
+
+        if (isBMS) {
+          return (
+            <div key={id} className="bms-widget">
+              <div className="widget-header">
+                <div className="widget-name">
+                  {message.name} ({id})
+                </div>
+                {message.timestamp && (
+                  <span className="timestamp">
+                    {message.timestamp}
+                  </span>
+                )}
+              </div>
+              <div className="widget-content">
+                {messageConfig.fields.map(fieldName => {
+                  const fieldData   = message.fields[fieldName];
+                  const encoding    = messageConfig.encoding[fieldName];
+                  const isBitfield  = !!(encoding?.bits);
+                  const unit        = encoding?.unit  ?? '';
+                  const scale       = encoding?.scale ?? 1;
+                  const rawValue    = fieldData?.raw   ?? null;
+                  const scaledValue = fieldData?.value ?? null;
+
+                  return (
+                    <div
+                      key={fieldName}
+                      className={`field-item${isBitfield ? ' bitfield' : ''}`}
+                      onMouseEnter={() => !isBitfield && encoding?.note && handleFieldHover(fieldName, encoding)}
+                      onMouseLeave={handleFieldLeave}
+                    >
+                      <div className="field-name">
+                        {fieldName}
+                        {isBitfield && encoding?.note && (
+                          <span className="note"> — {encoding.note}</span>
+                        )}
+                      </div>
+
+                      {isBitfield ? (
+                        <div className="bitfield-display">
+                          {encoding.bits && Object.keys(encoding.bits).map(bit => {
+                            const bitNum = Number(bit);
+                            const active = rawValue !== null && ((rawValue >> bitNum) & 1) === 1;
+                            return (
+                              <div
+                                key={bit}
+                                title={`Bit ${bit}: ${encoding.bits[bit]}`}
+                                className={`bit-pill${active ? ' active' : ''}`}
+                              >
+                                <div className={`bit-indicator${active ? ' active' : ''}`} />
+                                <span className={`bit-label${active ? ' active' : ''}`}>
+                                  {encoding.bits[bit]}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <div className="bit-hex">
+                            {rawValue !== null ? `0x${rawValue.toString(16).toUpperCase().padStart(4, '0')}` : 'N/A'}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="field-value">
+                            <div className="raw-value">
+                              {rawValue !== null ? `${rawValue} × ${scale}` : 'N/A'}
+                            </div>
+                            <div className={`scaled-value${scaledValue === null ? ' na' : ''}`}>
+                              {scaledValue !== null ? scaledValue : 'N/A'}
+                            </div>
+                            <div className="unit">
+                              {unit}
+                            </div>
+                          </div>
+                          {encoding?.note && (
+                            <div className="field-note">
+                              {encoding.note}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div key={id} style={{ marginBottom: '15px', border: '1px solid #444', borderRadius: '4px', padding: '8px' }}>
