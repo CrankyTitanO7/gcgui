@@ -193,14 +193,51 @@ const CAN_MESSAGE_TYPES = {
     }
   },
   '0x61': {
-    name: 'BMS_CellVoltages',
-    fields: ['LowCellVoltage', 'HighCellVoltage', 'AvgCellVoltage', 'HighID', 'LowID'],
+  name: 'BMS_PackData',
+  fields: ['PackCurrent', 'PackVoltage', 'PackPower', 'SOC', 'PrechargeState'],
+  encoding: {
+    PackCurrent:    { bytes: [0,1], type: 'int16be',  scale: 0.1, unit: 'A',   note: 'Pack current. 0 if no current sensor selected.' },
+    PackVoltage:    { bytes: [2,3], type: 'uint16',   scale: 0.1, unit: 'V',   note: 'Pack summed voltage' },
+    PackPower:      { bytes: [4,5], type: 'int16be',  scale: 0.1, unit: 'kW',  note: 'Pack power' },
+    SOC:            { bytes: [6],   type: 'uint8',    scale: 0.5, unit: '%',   note: 'State of charge' },
+    PrechargeState: { bytes: [7],   type: 'uint8',    scale: 1,   unit: '#',   note: 'Precharge circuit state' },
+  }
+  },
+  '0x62': {
+    name: 'BMS_Limits',
+    fields: ['Thermistors', 'CurrentLimitStatus'],
     encoding: {
-      LowCellVoltage:  { bytes: [0,1], type: 'uint16', scale: 0.0001, unit: 'V', note: 'Lowest cell voltage' },
-      HighCellVoltage: { bytes: [2,3], type: 'uint16', scale: 0.0001, unit: 'V', note: 'Highest cell voltage' },
-      AvgCellVoltage:  { bytes: [4,5], type: 'uint16', scale: 0.0001, unit: 'V', note: 'Average cell voltage' },
-      HighID:          { bytes: [6],   type: 'uint8',  scale: 1,      unit: '#', note: 'Highest cell ID' },
-      LowID:           { bytes: [7],   type: 'uint8',  scale: 1,      unit: '#', note: 'Lowest cell ID' },
+      Thermistors: { bytes: [0,1,2,3], type: 'uint32be', scale: 1, unit: '#', note: 'Raw thermistor data (4 bytes)' },
+      CurrentLimitStatus: {
+        bytes: [4,5], type: 'uint16', scale: 1, unit: '#',
+        note: 'DCL/CCL reduction reasons',
+        bits: {
+          0:  'DCL Low SOC',
+          1:  'DCL High Cell Resistance',
+          2:  'DCL Temperature',
+          3:  'DCL Low Cell Voltage',
+          4:  'DCL Low Pack Voltage',
+          6:  'DCL+CCL Voltage Failsafe',
+          7:  'DCL+CCL Comm Failsafe',
+          9:  'CCL High SOC',
+          10: 'CCL High Cell Resistance',
+          11: 'CCL Temperature',
+          12: 'CCL High Cell Voltage',
+          13: 'CCL High Pack Voltage',
+          14: 'CCL Charger Latch',
+          15: 'CCL Alt Current Limit',
+        }
+      }
+    }
+  },
+  '0x63': {
+    name: 'BMS_CellVoltages',
+    fields: ['CellVoltage1', 'CellVoltage2', 'CellVoltage3', 'CellID'],
+    encoding: {
+      CellVoltage1: { bytes: [0,1], type: 'uint16', scale: 0.001, unit: 'V', note: 'Cell voltage unit 1' },
+      CellVoltage2: { bytes: [2,3], type: 'uint16', scale: 0.001, unit: 'V', note: 'Cell voltage unit 2' },
+      CellVoltage3: { bytes: [4,5], type: 'uint16', scale: 0.001, unit: 'V', note: 'Cell voltage unit 3' },
+      CellID:       { bytes: [6,7], type: 'uint16', scale: 1,     unit: '#', note: 'Cell identifier (2 bytes)' },
     }
   },
 
