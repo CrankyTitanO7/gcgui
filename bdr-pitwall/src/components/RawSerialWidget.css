@@ -36,6 +36,40 @@
   color: #f44336;
 }
 
+.connection-status.replaying {
+  color: #2196f3;
+}
+
+/* Replay Timeline */
+.replay-timeline {
+  margin-bottom: 10px;
+  padding: 8px;
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+.timeline-bar {
+  height: 6px;
+  background: #444;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.timeline-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #2196f3, #4caf50);
+  border-radius: 3px;
+  transition: width 0.1s ease-out;
+}
+
+.timeline-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #888;
+}
+
 .raw-data-container {
   flex: 1;
   display: flex;

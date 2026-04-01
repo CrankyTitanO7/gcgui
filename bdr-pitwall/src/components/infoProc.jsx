@@ -460,7 +460,7 @@ const useCANData = () => {
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
-export const InfoProcProvider = ({ children, isRunning = true }) => {
+export const InfoProcProvider = ({ children, isRunning = true, dataSource = 'live' }) => {
   const canData = useCANData();
 
   useEffect(() => {
@@ -471,6 +471,7 @@ export const InfoProcProvider = ({ children, isRunning = true }) => {
 
     let cleanupData = null;
     let cleanupStatus = null;
+    let cleanupReplayStatus = null;
 
     if (window.electronAPI.onSerialData) {
       cleanupData = window.electronAPI.onSerialData((data) => {
@@ -481,12 +482,28 @@ export const InfoProcProvider = ({ children, isRunning = true }) => {
     if (window.electronAPI.onSerialConnectionStatus) {
       cleanupStatus = window.electronAPI.onSerialConnectionStatus(canData.handleConnectionStatus);
     }
+    
+    // Listen for replay status to update connection status in log mode
+    if (window.electronAPI.onReplayStatus) {
+      cleanupReplayStatus = window.electronAPI.onReplayStatus((status) => {
+        // In log mode, treat replay as "connected"
+        if (dataSource === 'log') {
+          canData.handleConnectionStatus(status.isPlaying);
+        }
+      });
+    }
+
+    // In log mode, set initial connection status based on isRunning
+    if (dataSource === 'log') {
+      canData.handleConnectionStatus(isRunning);
+    }
 
     return () => {
       if (cleanupData) cleanupData();
       if (cleanupStatus) cleanupStatus();
+      if (cleanupReplayStatus) cleanupReplayStatus();
     };
-  }, [canData.handleSerialData, canData.handleConnectionStatus, isRunning]);
+  }, [canData.handleSerialData, canData.handleConnectionStatus, isRunning, dataSource]);
 
   return (
     <CANDataContext.Provider value={canData}>

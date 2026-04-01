@@ -767,15 +767,14 @@ function App() {
 
         const message = replayInfo.messages[currentIndex];
         
-        // Send message to serial data handler
-        if (window.electronAPI && window.electronAPI.onSerialData) {
+        // Send message to serial data handler via IPC
+        if (window.electronAPI && window.electronAPI.injectSerialData) {
           // Format as serial data string (same format as live data)
           const dataHex = message.dataBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
           const serialLine = `${message.timestamp} ${message.direction}${message.canIdRaw} ${dataHex}`;
           
-          // Trigger the serial-data event
-          const event = new CustomEvent('serial-data', { detail: serialLine });
-          window.dispatchEvent(event);
+          // Inject data through IPC to go through the same channel as live data
+          window.electronAPI.injectSerialData(serialLine);
         }
 
         currentIndex++;
@@ -831,7 +830,7 @@ function App() {
   }, []);
 
   return (
-    <InfoProcProvider isRunning={isRunning}>
+    <InfoProcProvider isRunning={isRunning} dataSource={dataSource}>
       <div className="app-shell" onClick={() => setContextMenu(null)}>
         <ControlBar
           dataSource={dataSource}

@@ -4,6 +4,7 @@ import './RawSerialWidget.css';
 const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
   const [rawData, setRawData] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [replayProgress, setReplayProgress] = useState({ current: 0, total: 0, duration: 0, currentTime: 0 });
 
   useEffect(() => {
     if (!window.electronAPI) {
@@ -13,11 +14,12 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
 
     let cleanupData = null;
     let cleanupStatus = null;
+    let cleanupReplayStatus = null;
 
-    // Listen for serial data
+    // Listen for serial data - accept both 'live' and 'log' modes
     if (window.electronAPI.onSerialData) {
       cleanupData = window.electronAPI.onSerialData((data) => {
-        if (!isRunning || dataSource !== 'live') {
+        if (!isRunning) {
           return;
         }
         console.log('Serial data received:', data); // Debug log
@@ -39,10 +41,38 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
       });
     }
 
+    // Listen for replay status
+    if (window.electronAPI.onReplayStatus) {
+      cleanupReplayStatus = window.electronAPI.onReplayStatus((status) => {
+        console.log('Replay status:', status); // Debug log
+        if (status.currentIndex !== undefined) {
+          setReplayProgress(prev => ({ ...prev, current: status.currentIndex }));
+        }
+        if (status.completed) {
+          setReplayProgress(prev => ({ ...prev, current: prev.total }));
+        }
+      });
+    }
+
+    // Get initial replay status
+    if (dataSource === 'log' && window.electronAPI.getReplayStatus) {
+      window.electronAPI.getReplayStatus().then(status => {
+        if (status.ok) {
+          setReplayProgress({
+            current: status.currentIndex || 0,
+            total: status.totalMessages || 0,
+            duration: status.duration || 0,
+            currentTime: status.currentTime || 0
+          });
+        }
+      });
+    }
+
     // Cleanup on unmount
     return () => {
       if (cleanupData) cleanupData();
       if (cleanupStatus) cleanupStatus();
+      if (cleanupReplayStatus) cleanupReplayStatus();
     };
   }, [isRunning, dataSource]);
 
@@ -54,10 +84,30 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
     <div className="raw-serial-widget fill">
       <div className="widget-header">
         <div className="widget-name">Raw Serial Data</div>
-        <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
-          {isConnected ? '● Connected' : '○ Disconnected'}
+        <div className={`connection-status ${dataSource === 'log' ? 'replaying' : isConnected ? 'connected' : 'disconnected'}`}>
+          {dataSource === 'log' 
+            ? (isRunning ? '▶ Replaying' : '⏸ Paused')
+            : isConnected 
+              ? '● Connected' 
+              : '○ Disconnected'}
         </div>
       </div>
+
+      {/* Replay Timeline */}
+      {dataSource === 'log' && replayProgress.total > 0 && (
+        <div className="replay-timeline">
+          <div className="timeline-bar">
+            <div 
+              className="timeline-progress" 
+              style={{ width: `${(replayProgress.current / replayProgress.total) * 100}%` }}
+            />
+          </div>
+          <div className="timeline-info">
+            <span>{replayProgress.current} / {replayProgress.total} messages</span>
+            <span>{((replayProgress.current / replayProgress.total) * 100).toFixed(1)}%</span>
+          </div>
+        </div>
+      )}
       
       <div className="raw-data-container">
         <div className="raw-data-header">
@@ -71,11 +121,13 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
         <div className="raw-data-content">
           {rawData.length === 0 ? (
             <div className="no-data">
-              {!isConnected
-                ? 'No data received yet...'
-                : !isRunning || dataSource !== 'live'
-                ? 'Paused'
-                : 'Waiting for data...'}
+              {dataSource === 'log'
+                ? (!isRunning ? 'Paused - Click Start to replay' : 'Waiting for replay data...')
+                : !isConnected
+                  ? 'No data received yet...'
+                  : !isRunning
+                    ? 'Paused'
+                    : 'Waiting for data...'}
             </div>
           ) : (
             rawData.map((item, index) => (

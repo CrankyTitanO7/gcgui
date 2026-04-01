@@ -246,6 +246,13 @@ ipcMain.on('set-baud-rate', (event, baudRate) => {
   }
 });
 
+// IPC handler to inject serial data (used by replay)
+ipcMain.on('inject-serial-data', (event, data) => {
+  if (win && win.webContents) {
+    win.webContents.send('serial-data', data);
+  }
+});
+
 // Replay state
 let replayState = {
   isPlaying: false,
@@ -383,20 +390,21 @@ ipcMain.handle('start-replay', async (event, speed = 1.0) => {
         win.webContents.send('serial-data', serialLine);
       }
 
-      replayState.currentIndex++;
-
       // Calculate delay to next message
-      if (replayState.currentIndex < replayState.messages.length) {
-        const nextMessage = replayState.messages[replayState.currentIndex];
-        const delay = (nextMessage.timestamp - message.timestamp) / replayState.playbackSpeed * 1000;
+      const nextIndex = replayState.currentIndex + 1;
+      if (nextIndex < replayState.messages.length) {
+        const nextMessage = replayState.messages[nextIndex];
+        const delay = Math.max(0, (nextMessage.timestamp - message.timestamp) / replayState.playbackSpeed * 1000);
         
         // Cap delay at 100ms to prevent long pauses
         const cappedDelay = Math.min(delay, 100);
         
+        replayState.currentIndex = nextIndex;
         replayState.timeoutId = setTimeout(playNextMessage, cappedDelay);
       } else {
         // No more messages
         replayState.isPlaying = false;
+        replayState.currentIndex = nextIndex;
         if (win && win.webContents) {
           win.webContents.send('replay-status', { isPlaying: false, completed: true });
         }
