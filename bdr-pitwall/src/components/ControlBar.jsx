@@ -132,7 +132,7 @@ export default function ControlBar({
             ref={fileInputRef}
             id="log-file-input"
             type="file"
-            accept=".csv,.json,.log"
+            accept=".crtd"
             onChange={handleFileChange}
             style={{ display: 'none' }}
           />

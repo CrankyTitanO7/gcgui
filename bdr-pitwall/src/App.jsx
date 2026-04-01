@@ -336,6 +336,8 @@ function App() {
   }
   const [logFile, setLogFile] = useState(null)
   const [isRunning, setIsRunning] = useState(false)
+  const [replayInfo, setReplayInfo] = useState(null)
+  const [replayStatus, setReplayStatus] = useState({ isPlaying: false, completed: false })
   const [layoutLocked, setLayoutLocked] = useState(false)
   const [contextMenu, setContextMenu] = useState(null)
   const [propertiesEditor, setPropertiesEditor] = useState({
@@ -628,6 +630,205 @@ function App() {
       window.removeEventListener('resize', closeContextMenu)
     }
   }, [])
+
+  // Load CRTD file when logFile changes
+  useEffect(() => {
+    if (!logFile || dataSource !== 'log') {
+      setReplayInfo(null);
+      return;
+    }
+
+    const loadFile = async () => {
+      try {
+        console.log('📂 Loading CRTD file:', logFile.name);
+        
+        // Read file content
+        const content = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsText(logFile);
+        });
+
+        // Parse the file content
+        const lines = content.split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+          console.error('Empty file');
+          return;
+        }
+
+        // Parse header
+        const headerLine = lines[0];
+        let header = null;
+        
+        if (headerLine.startsWith('CXXRTL')) {
+          header = {
+            raw: headerLine,
+            timestamp: headerLine.replace('CXXRTL BDR-Pitwall live capture ', '')
+          };
+        }
+
+        // Parse CAN messages
+        const messages = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          const parts = line.split(/\s+/);
+          
+          if (parts.length < 3) continue;
+
+          const timestamp = parseFloat(parts[0]);
+          if (isNaN(timestamp)) continue;
+
+          // CAN ID might have R/T prefix (Received/Transmitted)
+          let canId = parts[1];
+          let direction = 'R'; // Default to Received
+          
+          if (canId.startsWith('R') || canId.startsWith('T')) {
+            direction = canId[0];
+            canId = canId.substring(1);
+          }
+
+          // Parse data bytes (everything after CAN ID)
+          const dataBytes = [];
+          for (let j = 2; j < parts.length; j++) {
+            const byte = parseInt(parts[j], 16);
+            if (!isNaN(byte)) {
+              dataBytes.push(byte);
+            }
+          }
+
+          if (dataBytes.length === 0) continue;
+
+          // Convert CAN ID to standard format (with 0x prefix)
+          const canIdNum = parseInt(canId, 16);
+          const formattedCanId = '0x' + canIdNum.toString(16).toLowerCase();
+
+          messages.push({
+            timestamp,
+            direction,
+            canId: formattedCanId,
+            canIdRaw: canId,
+            dataBytes,
+            raw: line
+          });
+        }
+
+        console.log(`✅ Parsed ${messages.length} messages from CRTD file`);
+        
+        setReplayInfo({
+          header,
+          messages,
+          messageCount: messages.length,
+          duration: messages.length > 0 ? messages[messages.length - 1].timestamp : 0
+        });
+
+        setReplayStatus({ isPlaying: false, completed: false });
+
+      } catch (error) {
+        console.error('❌ Failed to load CRTD file:', error);
+        setReplayInfo(null);
+      }
+    };
+
+    loadFile();
+  }, [logFile, dataSource]);
+
+  // Handle replay when isRunning changes
+  useEffect(() => {
+    if (dataSource !== 'log' || !replayInfo) {
+      return;
+    }
+
+    if (isRunning && !replayStatus.isPlaying) {
+      // Start replay
+      console.log('▶️ Starting replay');
+      
+      setReplayStatus({ isPlaying: true, completed: false });
+      
+      let currentIndex = 0;
+      let timeoutId = null;
+
+      const playNextMessage = () => {
+        if (!replayStatus.isPlaying && currentIndex === 0) {
+          // First message, mark as playing
+          setReplayStatus({ isPlaying: true, completed: false });
+        }
+
+        if (currentIndex >= replayInfo.messages.length) {
+          console.log('✅ Replay completed');
+          setReplayStatus({ isPlaying: false, completed: true });
+          setIsRunning(false);
+          return;
+        }
+
+        const message = replayInfo.messages[currentIndex];
+        
+        // Send message to serial data handler
+        if (window.electronAPI && window.electronAPI.onSerialData) {
+          // Format as serial data string (same format as live data)
+          const dataHex = message.dataBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+          const serialLine = `${message.timestamp} ${message.direction}${message.canIdRaw} ${dataHex}`;
+          
+          // Trigger the serial-data event
+          const event = new CustomEvent('serial-data', { detail: serialLine });
+          window.dispatchEvent(event);
+        }
+
+        currentIndex++;
+
+        // Calculate delay to next message
+        if (currentIndex < replayInfo.messages.length) {
+          const nextMessage = replayInfo.messages[currentIndex];
+          const delay = (nextMessage.timestamp - message.timestamp) * 1000;
+          
+          // Cap delay at 100ms to prevent long pauses
+          const cappedDelay = Math.min(delay, 100);
+          
+          timeoutId = setTimeout(playNextMessage, cappedDelay);
+        } else {
+          // No more messages
+          setReplayStatus({ isPlaying: false, completed: true });
+          setIsRunning(false);
+        }
+      };
+
+      // Start the replay loop
+      playNextMessage();
+
+      // Cleanup function
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+    } else if (!isRunning && replayStatus.isPlaying) {
+      // Pause replay
+      console.log('⏸️ Pausing replay');
+      setReplayStatus(prev => ({ ...prev, isPlaying: false }));
+    }
+  }, [isRunning, dataSource, replayInfo, replayStatus.isPlaying]);
+
+  // Listen for replay status updates
+  useEffect(() => {
+    if (!window.electronAPI || !window.electronAPI.onReplayStatus) {
+      return;
+    }
+
+    const cleanup = window.electronAPI.onReplayStatus((status) => {
+      console.log('Replay status update:', status);
+      setReplayStatus(status);
+      
+      if (status.completed) {
+        setIsRunning(false);
+      }
+    });
+
+    return cleanup;
+  }, []);
 
   return (
     <InfoProcProvider isRunning={isRunning}>

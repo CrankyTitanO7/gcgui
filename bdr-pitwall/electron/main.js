@@ -246,6 +246,238 @@ ipcMain.on('set-baud-rate', (event, baudRate) => {
   }
 });
 
+// Replay state
+let replayState = {
+  isPlaying: false,
+  messages: [],
+  currentIndex: 0,
+  playbackSpeed: 1.0,
+  timeoutId: null
+};
+
+// IPC handler to load and parse CRTD file
+ipcMain.handle('load-crtd-file', async (event, filePath) => {
+  try {
+    console.log('📂 Loading CRTD file:', filePath);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      return { ok: false, error: 'Empty file' };
+    }
+
+    // Parse header
+    const headerLine = lines[0];
+    let header = null;
+    
+    if (headerLine.startsWith('CXXRTL')) {
+      header = {
+        raw: headerLine,
+        timestamp: headerLine.replace('CXXRTL BDR-Pitwall live capture ', '')
+      };
+    }
+
+    // Parse CAN messages
+    const messages = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const parts = line.split(/\s+/);
+      
+      if (parts.length < 3) continue;
+
+      const timestamp = parseFloat(parts[0]);
+      if (isNaN(timestamp)) continue;
+
+      // CAN ID might have R/T prefix (Received/Transmitted)
+      let canId = parts[1];
+      let direction = 'R'; // Default to Received
+      
+      if (canId.startsWith('R') || canId.startsWith('T')) {
+        direction = canId[0];
+        canId = canId.substring(1);
+      }
+
+      // Parse data bytes (everything after CAN ID)
+      const dataBytes = [];
+      for (let j = 2; j < parts.length; j++) {
+        const byte = parseInt(parts[j], 16);
+        if (!isNaN(byte)) {
+          dataBytes.push(byte);
+        }
+      }
+
+      if (dataBytes.length === 0) continue;
+
+      // Convert CAN ID to standard format (with 0x prefix)
+      const canIdNum = parseInt(canId, 16);
+      const formattedCanId = '0x' + canIdNum.toString(16).toLowerCase();
+
+      messages.push({
+        timestamp,
+        direction,
+        canId: formattedCanId,
+        canIdRaw: canId,
+        dataBytes,
+        raw: line
+      });
+    }
+
+    console.log(`✅ Loaded ${messages.length} messages from CRTD file`);
+    
+    // Reset replay state
+    replayState = {
+      isPlaying: false,
+      messages,
+      currentIndex: 0,
+      playbackSpeed: 1.0,
+      timeoutId: null
+    };
+
+    return { 
+      ok: true, 
+      header,
+      messageCount: messages.length,
+      duration: messages.length > 0 ? messages[messages.length - 1].timestamp : 0
+    };
+  } catch (error) {
+    console.error('❌ Failed to load CRTD file:', error);
+    return { ok: false, error: error.message || 'Unknown error' };
+  }
+});
+
+// IPC handler to start replay
+ipcMain.handle('start-replay', async (event, speed = 1.0) => {
+  try {
+    if (replayState.messages.length === 0) {
+      return { ok: false, error: 'No messages loaded' };
+    }
+
+    console.log(`▶️ Starting replay at ${speed}x speed`);
+    replayState.isPlaying = true;
+    replayState.playbackSpeed = speed;
+    replayState.currentIndex = 0;
+
+    // Start replay loop
+    const playNextMessage = () => {
+      if (!replayState.isPlaying || replayState.currentIndex >= replayState.messages.length) {
+        if (replayState.currentIndex >= replayState.messages.length) {
+          console.log('✅ Replay completed');
+          replayState.isPlaying = false;
+          if (win && win.webContents) {
+            win.webContents.send('replay-status', { isPlaying: false, completed: true });
+          }
+        }
+        return;
+      }
+
+      const message = replayState.messages[replayState.currentIndex];
+      
+      // Send message to renderer
+      if (win && win.webContents) {
+        // Format as serial data string (same format as live data)
+        const dataHex = message.dataBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+        const serialLine = `${message.timestamp} ${message.direction}${message.canIdRaw} ${dataHex}`;
+        win.webContents.send('serial-data', serialLine);
+      }
+
+      replayState.currentIndex++;
+
+      // Calculate delay to next message
+      if (replayState.currentIndex < replayState.messages.length) {
+        const nextMessage = replayState.messages[replayState.currentIndex];
+        const delay = (nextMessage.timestamp - message.timestamp) / replayState.playbackSpeed * 1000;
+        
+        // Cap delay at 100ms to prevent long pauses
+        const cappedDelay = Math.min(delay, 100);
+        
+        replayState.timeoutId = setTimeout(playNextMessage, cappedDelay);
+      } else {
+        // No more messages
+        replayState.isPlaying = false;
+        if (win && win.webContents) {
+          win.webContents.send('replay-status', { isPlaying: false, completed: true });
+        }
+      }
+    };
+
+    // Start the replay loop
+    playNextMessage();
+
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ Failed to start replay:', error);
+    return { ok: false, error: error.message || 'Unknown error' };
+  }
+});
+
+// IPC handler to pause replay
+ipcMain.handle('pause-replay', async () => {
+  try {
+    console.log('⏸️ Pausing replay');
+    replayState.isPlaying = false;
+    
+    if (replayState.timeoutId) {
+      clearTimeout(replayState.timeoutId);
+      replayState.timeoutId = null;
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ Failed to pause replay:', error);
+    return { ok: false, error: error.message || 'Unknown error' };
+  }
+});
+
+// IPC handler to stop replay
+ipcMain.handle('stop-replay', async () => {
+  try {
+    console.log('⏹️ Stopping replay');
+    replayState.isPlaying = false;
+    replayState.currentIndex = 0;
+    
+    if (replayState.timeoutId) {
+      clearTimeout(replayState.timeoutId);
+      replayState.timeoutId = null;
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ Failed to stop replay:', error);
+    return { ok: false, error: error.message || 'Unknown error' };
+  }
+});
+
+// IPC handler to get replay status
+ipcMain.handle('get-replay-status', async () => {
+  return {
+    ok: true,
+    isPlaying: replayState.isPlaying,
+    currentIndex: replayState.currentIndex,
+    totalMessages: replayState.messages.length,
+    playbackSpeed: replayState.playbackSpeed
+  };
+});
+
+// IPC handler to seek to specific position
+ipcMain.handle('seek-replay', async (event, index) => {
+  try {
+    if (index < 0 || index >= replayState.messages.length) {
+      return { ok: false, error: 'Invalid index' };
+    }
+
+    console.log(`⏭️ Seeking to message ${index}`);
+    replayState.currentIndex = index;
+
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ Failed to seek replay:', error);
+    return { ok: false, error: error.message || 'Unknown error' };
+  }
+});
+
 // Handle connect-serial-port with baud rate parameter
 ipcMain.on('connect-serial-port', (event, portPath, baudRate) => {
   if (baudRate) {
