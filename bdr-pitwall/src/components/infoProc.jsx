@@ -207,7 +207,7 @@ const CAN_MESSAGE_TYPES = {
   name: 'BMS_PackData',
   fields: ['PackVoltage', 'SOC', 'PackCurrent', 'PackPower', 'PrechargeState'],
   encoding: {
-    PackVoltage:    { bytes: [0,1], type: 'uint16',  scale: 0.1, unit: 'V',  note: 'Pack summed voltage' },
+    PackVoltage:    { bytes: [0,1], type: 'uint16',  scale: 0.01, unit: 'V',  note: 'Pack summed voltage' },
     SOC:            { bytes: [2],   type: 'uint8',   scale: 0.5, unit: '%',  note: 'State of charge' },
     PackCurrent:    { bytes: [3,4], type: 'int16be', scale: 0.1, unit: 'A',  note: 'Pack current. 0 if no current sensor selected.' },
     PackPower:      { bytes: [5],   type: 'uint8',   scale: 1,   unit: 'kW', note: 'Pack kW power' },
