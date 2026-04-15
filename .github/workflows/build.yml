@@ -15,17 +15,21 @@ jobs:
         uses: actions/checkout@v1
 
       - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
-          node-version: 25.9.0
+          node-version: 20
+          cache: 'npm'
 
-      - name: Build/release Electron app
-        uses: samuelmeuli/action-electron-builder@v1
-        with:
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
-          github_token: ${{ secrets.github_token }}
+      - name: Install dependencies
+        run: cd bdr-pitwall && npm ci
 
-          # If the commit is tagged with a version (e.g. "v1.0.0"),
-          # release the app after building
-          release: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      - name: Build Electron app
+        run: cd bdr-pitwall && npm run build
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+
+      - name: Release Electron app
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cd bdr-pitwall && npm run release
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
