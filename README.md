@@ -42,10 +42,15 @@ Wrap a React application into a native desktop app using Electron. Provides a mo
 based on [this guide](https://github.com/marketplace/actions/electron-builder-action), we are publishing versions to github. Follow these instructions, and actions should auto-build on our chosen OSs. MAKE SURE TO UPDATE THE VERSION NUMBER, or GITHUB RELEASES won't know wtf happened.
 
 ### release instructions
-> 1. Update the version in your project's package.json file (e.g. 1.2.3)
-> 2. Commit that change (git commit -am v1.2.3)
-> 3. Tag your commit (git tag v1.2.3). Make sure your tag name's format is v*.*.*. Your workflow will use this tag to detect when to create a release
-Push your changes to GitHub (git push && git push --tags)
+#### TL;DR
+1. go into package.json in /bdr-pitwall/
+2. update version numbers, e.g. 1.2.3
+3. git commit -am v1.2.3
+4. git tag v1.2.3
+5. git push origin v1.2.3
+
+> the "v-" before the version number is super important, otherwise the thingy won't run.
+
 
 ## to build app as standalone
 > this is unrecommended, as it is likely we will implement Github actions to auto-build this. However, if it is necessary, here are instructions to manually build on your machine.
