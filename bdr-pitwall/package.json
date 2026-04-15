@@ -59,7 +59,7 @@
       "target": "nsis"
     },
     "mac": {
-      "target": "dmg"
+      "target": ["dmg", "zip"]
     }
   }
 }
