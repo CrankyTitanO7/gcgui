@@ -255,7 +255,7 @@ const CAN_MESSAGE_TYPES = {
   encoding: {
     AltitudeMSL: { bytes: [0,1,2,3], type: 'int32be', scale: 0.001, unit: 'm', note: 'Altitude above MSL (raw in mm)' },
   }
-}
+},
 
   // ---------------------------------------------------------------------------
   // Other messages
