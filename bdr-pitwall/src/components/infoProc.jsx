@@ -239,6 +239,25 @@ const CAN_MESSAGE_TYPES = {
   },
 
   // ---------------------------------------------------------------------------
+  // sparkfun gps module
+  // ---------------------------------------------------------------------------
+  '0x700': {
+  name: 'GPS_LatLon',
+  fields: ['Latitude', 'Longitude'],
+  encoding: {
+    Latitude:  { bytes: [0,1,2,3], type: 'int32be', scale: 1e-7, unit: '°', note: 'Degrees (raw * 1e-7)' },
+    Longitude: { bytes: [4,5,6,7], type: 'int32be', scale: 1e-7, unit: '°', note: 'Degrees (raw * 1e-7)' },
+  }
+},
+'0x701': {
+  name: 'GPS_Altitude',
+  fields: ['AltitudeMSL'],
+  encoding: {
+    AltitudeMSL: { bytes: [0,1,2,3], type: 'int32be', scale: 0.001, unit: 'm', note: 'Altitude above MSL (raw in mm)' },
+  }
+}
+
+  // ---------------------------------------------------------------------------
   // Other messages
   // ---------------------------------------------------------------------------
   '0x52c': {
