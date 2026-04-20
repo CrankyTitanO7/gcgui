@@ -9,7 +9,8 @@
   "build": "vite build",
   "start": "npm run build && electron .",
   "package": "npm run build && electron-builder --publish never",
-  "release": "npm run build && electron-builder --publish always"
+  "release": "npm run build && electron-builder --publish always",
+  "rebuild": "electron-rebuild -f -w serialport"
   },
   "repository": {
   "type": "git",
