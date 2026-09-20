@@ -1,30 +1,51 @@
 import { useEffect, useState } from "react";
 import "../App.css";
-// import BMSStatusWidget from "./components/BMS";
+import { useCANDataHook } from "./parsers/canproc";
+import { useCSVDataHook } from "./parsers/csvproc";
 
-function LinePlotWidget({ shape }) {
+// CAN and CSV fields are { value, unit, raw } objects; extract the display value.
+const fieldValue = field => field?.value ?? field?.raw ?? null;
+
+export default function LinePlotWidget({ shape, mode = "can" }) {
     const { canData } = useCANDataHook();
-    const [selectedField, setSelectedField] = useState(shape.dataField || "RPM");
+    const { csvData } = useCSVDataHook();
+    const isCSV = mode === "csv";
+    const [selectedField, setSelectedField] = useState(shape.dataField || (isCSV ? "datapoint 1" : "RPM"));
     const [dataPoints, setDataPoints] = useState([]);
 
-    const allFields = [];
-    Object.values(canData).forEach(message => {
-        if (message?.fields) {
-            Object.keys(message.fields).forEach(field => {
-                if (!allFields.includes(field)) allFields.push(field);
-            });
-        }
-    });
+    const csvMessage = isCSV ? csvData.csv : undefined;
+    const csvFieldNames = Object.keys(csvMessage?.fields ?? {});
+    const allFields = isCSV
+        ? csvFieldNames.length > 0
+            ? csvFieldNames
+            : ["datapoint 1"]
+        : (() => {
+              const names = [];
+              Object.values(canData).forEach(message => {
+                  if (message?.fields) {
+                      Object.keys(message.fields).forEach(field => {
+                          if (!names.includes(field)) names.push(field);
+                      });
+                  }
+              });
+              return names;
+          })();
 
     useEffect(() => {
         let currentValue = null;
-        Object.values(canData).forEach(message => {
-            if (message?.fields?.[selectedField] != null) currentValue = message.fields[selectedField];
-        });
+        if (isCSV) {
+            const value = fieldValue(csvMessage?.fields?.[selectedField]);
+            if (typeof value === "number" && !Number.isNaN(value)) currentValue = value;
+        } else {
+            Object.values(canData).forEach(message => {
+                const value = fieldValue(message?.fields?.[selectedField]);
+                if (typeof value === "number" && !Number.isNaN(value)) currentValue = value;
+            });
+        }
         if (currentValue !== null) {
             setDataPoints(prev => [...prev, currentValue].slice(-16));
         }
-    }, [canData, selectedField]);
+    }, [canData, csvMessage, selectedField, isCSV]);
 
     const generatePoints = data => {
         if (data.length === 0) return "";

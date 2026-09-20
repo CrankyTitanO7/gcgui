@@ -7,6 +7,7 @@ import LinePlotWidget from "./components/LinePlotWidget";
 import NumberWidget from "./components/NumberWidget";
 import Palette from "./components/Palette";
 import { CANDataDebugger, CanProcProvider } from "./components/parsers/canproc";
+import { CsvProcProvider } from "./components/parsers/csvproc";
 import RadioWidget from "./components/RadioWidget";
 import RawSerialWidget from "./components/RawSerialWidget";
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from "./utils/config";
@@ -156,11 +157,12 @@ function ReplayBar({ replayInfo, replayCurrentIndex, isRunning, onPlayPause, onS
 }
 
 function renderComponent(shape, runtimeState = {}) {
+    const mode = runtimeState.protocol === "csv" ? "csv" : "can";
     switch (shape.type) {
         case "number":
-            return <NumberWidget shape={shape} />;
+            return <NumberWidget shape={shape} mode={mode} />;
         case "line-plot":
-            return <LinePlotWidget shape={shape} />;
+            return <LinePlotWidget shape={shape} mode={mode} />;
         case "raw-serial":
             return <RawSerialWidget isRunning={runtimeState.isRunning} dataSource={runtimeState.dataSource} />;
         case "can-data":
@@ -186,6 +188,7 @@ function App() {
     const [zoom, setZoom] = useState(1);
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [dataSource, setDataSource] = useState("live");
+    const [protocol, setProtocol] = useState("can");
     const [usbPort, setUsbPort] = useState("");
     const [baudRate, setBaudRate] = useState(115200);
     const [availablePorts, setAvailablePorts] = useState([]);
@@ -713,10 +716,13 @@ function App() {
 
     return (
         <CanProcProvider isRunning={isRunning} dataSource={dataSource}>
+            <CsvProcProvider isRunning={isRunning} dataSource={dataSource}>
             <div className="app-shell" onClick={() => setContextMenu(null)}>
                 <ControlBar
                     dataSource={dataSource}
                     setDataSource={setDataSource}
+                    protocol={protocol}
+                    setProtocol={setProtocol}
                     usbPort={usbPort}
                     setUsbPort={setUsbPort}
                     baudRate={baudRate}
@@ -758,7 +764,7 @@ function App() {
                     gridSize={GRID_SIZE}
                     zoom={zoom}
                     setZoom={setZoom}
-                    renderShape={shape => renderComponent(shape, { isRunning, dataSource })}
+                    renderShape={shape => renderComponent(shape, { isRunning, dataSource, protocol })}
                 />
 
                 <Palette
@@ -846,6 +852,7 @@ function App() {
                     </div>
                 )}
             </div>
+            </CsvProcProvider>
         </CanProcProvider>
     );
 }

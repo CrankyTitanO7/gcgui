@@ -1,29 +1,52 @@
 import { useState } from "react";
 import "../App.css";
-// import BMSStatusWidget from "./components/BMS";
+import { useCANDataHook } from "./parsers/canproc";
+import { useCSVDataHook } from "./parsers/csvproc";
 
-function NumberWidget({ shape }) {
+const CAN_FALLBACK_FIELDS = ["RPM", "Throttle", "EngineTemp", "OilPressure", "Voltage", "Current", "Temperature", "SOC"];
+
+// CAN and CSV fields are { value, unit, raw } objects; extract the display value.
+const fieldValue = field => field?.value ?? field?.raw ?? null;
+
+export default function NumberWidget({ shape, mode = "can" }) {
     const { canData } = useCANDataHook();
-    const [selectedField, setSelectedField] = useState(shape.dataField || "RPM");
+    const { csvData } = useCSVDataHook();
+    const isCSV = mode === "csv";
 
-    const allFields = [];
-    Object.values(canData).forEach(message => {
-        if (message?.fields) {
-            Object.keys(message.fields).forEach(field => {
-                if (!allFields.includes(field)) allFields.push(field);
-            });
-        }
-    });
+    const [selectedField, setSelectedField] = useState(shape.dataField || (isCSV ? "datapoint 1" : "RPM"));
 
+    if (mode !== "can" && mode !== "csv") {
+        return (
+            <div className="number-widget fill">
+                <div className="widget-name">{shape.name || "Number Widget"}</div>
+                <div className="number-widget-value">invalid mode</div>
+            </div>
+        );
+    }
+
+    let allFields = [];
     let currentValue = "N/A";
-    Object.values(canData).forEach(message => {
-        if (message?.fields?.[selectedField] != null) currentValue = message.fields[selectedField];
-    });
 
-    const availableFields =
-        allFields.length > 0
-            ? allFields
-            : ["RPM", "Throttle", "EngineTemp", "OilPressure", "Voltage", "Current", "Temperature", "SOC"];
+    if (isCSV) {
+        const fields = csvData.csv?.fields ?? {};
+        allFields = Object.keys(fields);
+        if (allFields.length === 0) allFields = ["datapoint 1"];
+        const value = fieldValue(fields[selectedField]);
+        if (value != null) currentValue = String(value);
+    } else {
+        Object.values(canData).forEach(message => {
+            if (message?.fields) {
+                Object.keys(message.fields).forEach(field => {
+                    if (!allFields.includes(field)) allFields.push(field);
+                });
+            }
+        });
+        Object.values(canData).forEach(message => {
+            const value = fieldValue(message?.fields?.[selectedField]);
+            if (value != null) currentValue = String(value);
+        });
+        if (allFields.length === 0) allFields = CAN_FALLBACK_FIELDS;
+    }
 
     return (
         <div className="number-widget fill">
@@ -50,7 +73,7 @@ function NumberWidget({ shape }) {
                         fontSize: "12px",
                     }}
                 >
-                    {availableFields.map(field => (
+                    {allFields.map(field => (
                         <option key={field} value={field}>
                             {field}
                         </option>
