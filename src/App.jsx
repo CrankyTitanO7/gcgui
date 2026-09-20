@@ -20,10 +20,10 @@ const COMPONENTS = [
     { type: "raw-serial", label: "Raw Serial", w: 8, h: 6, defaultName: "Raw Serial Widget", defaultField: "" },
     {
         type: "can-data",
-        label: "motor inverter",
+        label: "can interpreter",
         w: 10,
         h: 6,
-        defaultName: "motor inverter CAN Data Widget",
+        defaultName: "CAN Data Widget",
         defaultField: "",
     },
     // { type: "bms-status", label: "BMS Status", w: 10, h: 8, defaultName: "BMS Status", defaultField: "" },
@@ -717,141 +717,141 @@ function App() {
     return (
         <CanProcProvider isRunning={isRunning} dataSource={dataSource}>
             <CsvProcProvider isRunning={isRunning} dataSource={dataSource}>
-            <div className="app-shell" onClick={() => setContextMenu(null)}>
-                <ControlBar
-                    dataSource={dataSource}
-                    setDataSource={setDataSource}
-                    protocol={protocol}
-                    setProtocol={setProtocol}
-                    usbPort={usbPort}
-                    setUsbPort={setUsbPort}
-                    baudRate={baudRate}
-                    setBaudRate={setBaudRate}
-                    logFile={logFile}
-                    setLogFile={setLogFile}
-                    isRunning={isRunning}
-                    setIsRunning={setIsRunning}
-                    onOpenPalette={() => setPaletteOpen(true)}
-                    layoutLocked={layoutLocked}
-                    availablePorts={availablePorts}
-                    isScanning={isScanning}
-                    onRefreshPorts={refreshPorts}
-                />
-
-                {/* Transport bar — only visible in log replay mode */}
-                {dataSource === "log" && (
-                    <ReplayBar
-                        replayInfo={replayInfo}
-                        replayCurrentIndex={replayCurrentIndex}
+                <div className="app-shell" onClick={() => setContextMenu(null)}>
+                    <ControlBar
+                        dataSource={dataSource}
+                        setDataSource={setDataSource}
+                        protocol={protocol}
+                        setProtocol={setProtocol}
+                        usbPort={usbPort}
+                        setUsbPort={setUsbPort}
+                        baudRate={baudRate}
+                        setBaudRate={setBaudRate}
+                        logFile={logFile}
+                        setLogFile={setLogFile}
                         isRunning={isRunning}
-                        onPlayPause={togglePlayPause}
-                        onSeek={seekReplay}
-                        onStepForward={stepForward}
-                        onStepBackward={stepBackward}
+                        setIsRunning={setIsRunning}
+                        onOpenPalette={() => setPaletteOpen(true)}
+                        layoutLocked={layoutLocked}
+                        availablePorts={availablePorts}
+                        isScanning={isScanning}
+                        onRefreshPorts={refreshPorts}
                     />
-                )}
 
-                <Editor
-                    shapes={shapes}
-                    onUpdateShape={onUpdateShape}
-                    onSelectShape={setSelectedId}
-                    onOpenShapeMenu={({ id, x, y }) => setContextMenu({ shapeId: id, x, y })}
-                    selectedId={selectedId}
-                    panX={panX}
-                    setPanX={setPanX}
-                    panY={panY}
-                    setPanY={setPanY}
-                    gridSize={GRID_SIZE}
-                    zoom={zoom}
-                    setZoom={setZoom}
-                    renderShape={shape => renderComponent(shape, { isRunning, dataSource, protocol })}
-                />
+                    {/* Transport bar — only visible in log replay mode */}
+                    {dataSource === "log" && (
+                        <ReplayBar
+                            replayInfo={replayInfo}
+                            replayCurrentIndex={replayCurrentIndex}
+                            isRunning={isRunning}
+                            onPlayPause={togglePlayPause}
+                            onSeek={seekReplay}
+                            onStepForward={stepForward}
+                            onStepBackward={stepBackward}
+                        />
+                    )}
 
-                <Palette
-                    components={COMPONENTS}
-                    onAdd={addShape}
-                    onDelete={() => deleteShape(selectedId)}
-                    onSave={saveConfiguration}
-                    onLoad={loadConfiguration}
-                    onReset={resetConfiguration}
-                    hasSelection={Boolean(selectedId)}
-                    isOpen={paletteOpen}
-                    onClose={() => setPaletteOpen(false)}
-                    isLocked={layoutLocked}
-                    onToggleLayoutLock={() => setLayoutLocked(v => !v)}
-                />
+                    <Editor
+                        shapes={shapes}
+                        onUpdateShape={onUpdateShape}
+                        onSelectShape={setSelectedId}
+                        onOpenShapeMenu={({ id, x, y }) => setContextMenu({ shapeId: id, x, y })}
+                        selectedId={selectedId}
+                        panX={panX}
+                        setPanX={setPanX}
+                        panY={panY}
+                        setPanY={setPanY}
+                        gridSize={GRID_SIZE}
+                        zoom={zoom}
+                        setZoom={setZoom}
+                        renderShape={shape => renderComponent(shape, { isRunning, dataSource, protocol })}
+                    />
 
-                {contextMenu && (
-                    <div
-                        className="widget-context-menu"
-                        style={{ top: contextMenu.y, left: contextMenu.x }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <button
-                            className="widget-context-option"
-                            disabled={layoutLocked}
-                            onClick={() => {
-                                openPropertiesEditor(contextMenu.shapeId);
-                                setContextMenu(null);
-                            }}
+                    <Palette
+                        components={COMPONENTS}
+                        onAdd={addShape}
+                        onDelete={() => deleteShape(selectedId)}
+                        onSave={saveConfiguration}
+                        onLoad={loadConfiguration}
+                        onReset={resetConfiguration}
+                        hasSelection={Boolean(selectedId)}
+                        isOpen={paletteOpen}
+                        onClose={() => setPaletteOpen(false)}
+                        isLocked={layoutLocked}
+                        onToggleLayoutLock={() => setLayoutLocked(v => !v)}
+                    />
+
+                    {contextMenu && (
+                        <div
+                            className="widget-context-menu"
+                            style={{ top: contextMenu.y, left: contextMenu.x }}
+                            onClick={e => e.stopPropagation()}
                         >
-                            Edit
-                        </button>
-                        <button
-                            className="widget-context-option danger"
-                            disabled={layoutLocked}
-                            onClick={() => {
-                                deleteShape(contextMenu.shapeId);
-                                setContextMenu(null);
-                            }}
-                        >
-                            Delete
-                        </button>
-                    </div>
-                )}
-
-                {propertiesEditor.open && (
-                    <div className="properties-overlay" onClick={closePropertiesEditor}>
-                        <div className="properties-modal" onClick={e => e.stopPropagation()}>
-                            <h3>Widget Properties</h3>
-                            <form
-                                className="properties-form"
-                                onSubmit={e => {
-                                    e.preventDefault();
-                                    applyPropertiesEditorChanges();
+                            <button
+                                className="widget-context-option"
+                                disabled={layoutLocked}
+                                onClick={() => {
+                                    openPropertiesEditor(contextMenu.shapeId);
+                                    setContextMenu(null);
                                 }}
                             >
-                                <label htmlFor="widget-name">Name</label>
-                                <input
-                                    id="widget-name"
-                                    type="text"
-                                    value={propertiesEditor.name}
-                                    placeholder="Widget name"
-                                    onChange={e => setPropertiesEditor(curr => ({ ...curr, name: e.target.value }))}
-                                />
-                                <label htmlFor="widget-data-field">Data Field</label>
-                                <input
-                                    id="widget-data-field"
-                                    type="text"
-                                    value={propertiesEditor.dataField}
-                                    placeholder="Data field"
-                                    onChange={e =>
-                                        setPropertiesEditor(curr => ({ ...curr, dataField: e.target.value }))
-                                    }
-                                />
-                                <div className="properties-actions">
-                                    <button type="button" className="secondary" onClick={closePropertiesEditor}>
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="primary">
-                                        Save
-                                    </button>
-                                </div>
-                            </form>
+                                Edit
+                            </button>
+                            <button
+                                className="widget-context-option danger"
+                                disabled={layoutLocked}
+                                onClick={() => {
+                                    deleteShape(contextMenu.shapeId);
+                                    setContextMenu(null);
+                                }}
+                            >
+                                Delete
+                            </button>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+
+                    {propertiesEditor.open && (
+                        <div className="properties-overlay" onClick={closePropertiesEditor}>
+                            <div className="properties-modal" onClick={e => e.stopPropagation()}>
+                                <h3>Widget Properties</h3>
+                                <form
+                                    className="properties-form"
+                                    onSubmit={e => {
+                                        e.preventDefault();
+                                        applyPropertiesEditorChanges();
+                                    }}
+                                >
+                                    <label htmlFor="widget-name">Name</label>
+                                    <input
+                                        id="widget-name"
+                                        type="text"
+                                        value={propertiesEditor.name}
+                                        placeholder="Widget name"
+                                        onChange={e => setPropertiesEditor(curr => ({ ...curr, name: e.target.value }))}
+                                    />
+                                    <label htmlFor="widget-data-field">Data Field</label>
+                                    <input
+                                        id="widget-data-field"
+                                        type="text"
+                                        value={propertiesEditor.dataField}
+                                        placeholder="Data field"
+                                        onChange={e =>
+                                            setPropertiesEditor(curr => ({ ...curr, dataField: e.target.value }))
+                                        }
+                                    />
+                                    <div className="properties-actions">
+                                        <button type="button" className="secondary" onClick={closePropertiesEditor}>
+                                            Cancel
+                                        </button>
+                                        <button type="submit" className="primary">
+                                            Save
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </CsvProcProvider>
         </CanProcProvider>
     );
