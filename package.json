@@ -19,6 +19,7 @@
         "url": "https://github.com/CrankyTitanO7/gcgui.git"
     },
     "dependencies": {
+        "@serialport/parser-readline": "^13.0.0",
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
         "react-router-dom": "^7.18.4",
