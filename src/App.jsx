@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import BMSStatusWidget from "./components/BMS";
+// import BMSStatusWidget from "./components/BMS";
 import ControlBar from "./components/ControlBar";
 import Editor from "./components/Editor";
 import Palette from "./components/Palette";
 import RadioWidget from "./components/RadioWidget";
 import RawSerialWidget from "./components/RawSerialWidget";
-import { CANDataDebugger, InfoProcProvider, useCANDataHook } from "./components/infoProc";
+import { CANDataDebugger, CanProcProvider, useCANDataHook } from "./components/parsers/canproc";
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from "./utils/config";
 
 const GRID_SIZE = 28;
@@ -23,7 +23,7 @@ const COMPONENTS = [
         defaultName: "motor inverter CAN Data Widget",
         defaultField: "",
     },
-    { type: "bms-status", label: "BMS Status", w: 10, h: 8, defaultName: "BMS Status", defaultField: "" },
+    // { type: "bms-status", label: "BMS Status", w: 10, h: 8, defaultName: "BMS Status", defaultField: "" },
     { type: "radio", label: "Radio", w: 6, h: 4, defaultName: "Radio Widget", defaultField: "" },
 ];
 
@@ -340,8 +340,8 @@ function renderComponent(shape, runtimeState = {}) {
             return <RawSerialWidget isRunning={runtimeState.isRunning} dataSource={runtimeState.dataSource} />;
         case "can-data":
             return <CANDataDebugger />;
-        case "bms-status":
-            return <BMSStatusWidget shape={shape} />;
+        // case "bms-status":
+        //     return <BMSStatusWidget shape={shape} />;
         case "radio":
             return <RadioWidget />;
         default:
@@ -887,7 +887,7 @@ function App() {
     // ---------------------------------------------------------------------------
 
     return (
-        <InfoProcProvider isRunning={isRunning} dataSource={dataSource}>
+        <CanProcProvider isRunning={isRunning} dataSource={dataSource}>
             <div className="app-shell" onClick={() => setContextMenu(null)}>
                 <ControlBar
                     dataSource={dataSource}
@@ -1021,7 +1021,7 @@ function App() {
                     </div>
                 )}
             </div>
-        </InfoProcProvider>
+        </CanProcProvider>
     );
 }
 

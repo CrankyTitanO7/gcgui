@@ -99,8 +99,9 @@ based on [this guide](https://github.com/marketplace/actions/electron-builder-ac
 │ │ ├── BMS.jsx
 │ │ ├── ControlBar.jsx
 │ │ ├── Editor.jsx
-│ │ ├── infoProc.jsx
 │ │ ├── Palette.jsx
+│ │ ├── parsers
+│ │ │ └── canproc.jsx
 │ │ ├── RadioWidget.css
 │ │ ├── RadioWidget.jsx
 │ │ ├── RawSerialWidget.css
