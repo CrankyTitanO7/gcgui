@@ -15,28 +15,36 @@ jobs:
             - name: Check out Git repository
               uses: actions/checkout@v4
 
-            - name: Install Node.js, NPM and Yarn
+            - name: Install pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+
+            - name: Install Node.js
               uses: actions/setup-node@v4
               with:
                   node-version: 22
-                  cache: "npm"
-                  cache-dependency-path: gcgui/package-lock.json
+                  cache: "pnpm"
 
             - name: Install dependencies
-              run: cd gcgui && npm ci
+              run: pnpm install --frozen-lockfile
+
+            - name: Lint
+              run: pnpm run lint
+              # oxlint exits non-zero on errors (warnings do not fail the build)
 
             - name: Build Electron app
-              run: cd gcgui && npm run package
-              # npm run package = vite build + electron-builder (no publish)
+              run: pnpm run package
+              # pnpm run package = vite build + electron-builder (no publish)
 
             - name: Upload artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: release-${{ matrix.os }}
                   path: |
-                      gcgui/release/*.dmg
-                      gcgui/release/*.AppImage
-                      gcgui/release/*.exe
+                      release/*.dmg
+                      release/*.AppImage
+                      release/*.exe
                   if-no-files-found: error
 
     release:

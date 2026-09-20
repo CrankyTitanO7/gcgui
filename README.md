@@ -34,9 +34,9 @@ Wrap a React application into a native desktop app using Electron. Provides a mo
 
 ## Getting Started: Development
 
-1. cd src
-2. npm install
-3. npm run dev
+1. pnpm install
+2. pnpm run dev
+3. pnpm run lint (oxlint)
 
 ## publishing releases
 
@@ -58,10 +58,10 @@ based on [this guide](https://github.com/marketplace/actions/electron-builder-ac
 
 > this is unrecommended, as it is likely we will implement Github actions to auto-build this. However, if it is necessary, here are instructions to manually build on your machine.
 
-1. npm install
-2. npm run package
+1. pnpm install
+2. pnpm run package
 
-> note that npm occassionally is unable to build packages on running npm install. it will typically say please run npm audit fix. this works most of the time. otherwise, try npm audit fix --force
+> note that pnpm occasionally is unable to build packages on running pnpm install. Check that your Node.js version matches `.github/workflows/build.yml`, then retry with a clean install (`rm -rf node_modules && pnpm install`).
 
 > note that on windows, you need to enable developer settings. (settings -> system -> advanced -> developer mode)
 
@@ -73,11 +73,11 @@ based on [this guide](https://github.com/marketplace/actions/electron-builder-ac
 ├── electron
 │ ├── main.js
 │ └── preload.js
-├── eslint.config.js
+├── .oxlintrc.json
 ├── gui
 ├── index.html
 ├── package.json
-├── package-lock.json
+├── pnpm-lock.yaml
 ├── public
 │ └── logo.jpg
 ├── README.md

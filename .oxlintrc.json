@@ -1,0 +1,39 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["react"],
+    "env": {
+        "browser": true,
+        "es2020": true
+    },
+    "ignorePatterns": ["dist"],
+    "settings": {
+        "react": {
+            "version": "19.3.0"
+        }
+    },
+    "rules": {
+        "no-unused-vars": [
+            "error",
+            {
+                "varsIgnorePattern": "^[A-Z_]"
+            }
+        ],
+        "react/rules-of-hooks": "error",
+        "react/exhaustive-deps": "warn",
+        "react/only-export-components": [
+            "warn",
+            {
+                "allowConstantExport": true
+            }
+        ]
+    },
+    "overrides": [
+        {
+            "files": ["electron/**/*.js"],
+            "env": {
+                "browser": false,
+                "node": true
+            }
+        }
+    ]
+}

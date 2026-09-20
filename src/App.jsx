@@ -368,7 +368,7 @@ function App() {
     const [logFile, setLogFile] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
     const [replayInfo, setReplayInfo] = useState(null);
-    const [replayStatus, setReplayStatus] = useState({ isPlaying: false, completed: false });
+    const [, setReplayStatus] = useState({ isPlaying: false, completed: false });
     const [layoutLocked, setLayoutLocked] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
     const [propertiesEditor, setPropertiesEditor] = useState({

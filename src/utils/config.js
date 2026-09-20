@@ -49,7 +49,7 @@ export async function loadConfig(file) {
       try {
         const config = JSON.parse(e.target.result)
         resolve(config)
-      } catch (error) {
+      } catch {
         reject(new Error('Invalid JSON file'))
       }
     }
