@@ -115,6 +115,27 @@
   background: #444;
 }
 
+.lock-button {
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+
+.lock-button:hover {
+  background: #444;
+}
+
+.lock-button.active {
+  border-color: #4caf50;
+  color: #a5d6a7;
+}
+
 .raw-data-content {
   flex: 1;
   overflow-y: auto;

@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getReplayStatus: () => ipcRenderer.invoke('get-replay-status'),
   seekReplay: (index) => ipcRenderer.invoke('seek-replay', index),
   injectSerialData: (data) => ipcRenderer.send('inject-serial-data', data),
+  sendSerialData: (data) => ipcRenderer.invoke('send-serial-data', data),
   
   onReplayStatus: (callback) => {
     const listener = (event, status) => callback(status);

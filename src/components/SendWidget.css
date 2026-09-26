@@ -1,0 +1,182 @@
+.send-widget {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 10px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+}
+
+.send-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #101010;
+  color: #e8f5e9;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+}
+
+.send-input:focus {
+  border-color: #4caf50;
+}
+
+.send-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.send-newline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  user-select: none;
+}
+
+.send-newline-toggle input {
+  accent-color: #4caf50;
+  cursor: pointer;
+}
+
+.send-button {
+  background: #2e7d32;
+  color: #fff;
+  border: 1px solid #4caf50;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.send-button:hover:not(:disabled) {
+  background: #388e3c;
+}
+
+.send-button:disabled {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.send-error {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #ef9a9a;
+}
+
+.send-history {
+  margin-top: 8px;
+  flex: 1;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 6px;
+}
+
+.send-history-line {
+  display: flex;
+  margin-bottom: 2px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.send-history-line:hover {
+  background: #2a2a2a;
+}
+
+/* Key-send switch */
+.keysend-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.keysend-state {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.keysend-state.on {
+  color: #4caf50;
+}
+
+.keysend-state.off {
+  color: #888;
+}
+
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: #444;
+  border: 1px solid #555;
+  transition: background 0.15s ease;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.switch.on {
+  background: #2e7d32;
+  border-color: #4caf50;
+}
+
+.switch:focus-visible {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.5);
+}
+
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.15s ease;
+}
+
+.switch.on .knob {
+  left: 22px;
+}
+
+.keysend-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888;
+  line-height: 1.4;
+}
+
+.keysend-status {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 12px;
+  color: #aaa;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.keysend-last strong {
+  color: #e8f5e9;
+}

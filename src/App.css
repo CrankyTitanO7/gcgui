@@ -1024,25 +1024,88 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
   min-height: 44px;
   overflow: hidden;
+  position: relative;
+}
+
+.line-widget-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.line-widget-value {
+  font-size: clamp(20px, 2.6vw, 34px);
+  line-height: 1;
+  font-weight: 800;
+  color: #f7f9ff;
+  text-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  font-variant-numeric: tabular-nums;
+}
+
+.line-widget-field {
+  font-size: 11px;
+  color: #a9b0d3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-widget-range {
+  margin-left: auto;
+  font-size: 10px;
+  color: #7c84a8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.line-widget-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #7c84a8;
+  font-style: italic;
 }
 
 .line-plot-svg {
   width: 100%;
   height: 100%;
+  display: block;
 }
 
 .line-plot-path {
   fill: none;
-  stroke: #2196f3;
+  stroke: #4caf50;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
+.line-plot-dot {
+  fill: #4caf50;
+  stroke: #0c2213;
+  stroke-width: 1.5;
+}
+
+.plot-frame {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+}
+
 .gridline {
-  stroke: #333;
-  stroke-width: 0.5;
-  opacity: 0.5;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.gridline-edge {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1;
   pointer-events: none;
 }
 

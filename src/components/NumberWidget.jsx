@@ -31,8 +31,6 @@ export default function NumberWidget({ shape, mode = "can" }) {
         const fields = csvData.csv?.fields ?? {};
         allFields = Object.keys(fields);
         if (allFields.length === 0) allFields = ["datapoint 1"];
-        const value = fieldValue(fields[selectedField]);
-        if (value != null) currentValue = String(value);
     } else {
         Object.values(canData).forEach(message => {
             if (message?.fields) {
@@ -41,11 +39,23 @@ export default function NumberWidget({ shape, mode = "can" }) {
                 });
             }
         });
+        if (allFields.length === 0) allFields = CAN_FALLBACK_FIELDS;
+    }
+
+    // "time" is the sample clock, not a displayable signal.
+    const visibleFields = allFields.filter(field => field !== "time");
+    const selectOptions = visibleFields.length > 0 ? visibleFields : allFields;
+    // Remap legacy "time" selections to the first available field.
+    const effectiveField = selectOptions.includes(selectedField) ? selectedField : selectOptions[0];
+
+    if (isCSV) {
+        const value = fieldValue(csvData.csv?.fields?.[effectiveField]);
+        if (value != null) currentValue = String(value);
+    } else {
         Object.values(canData).forEach(message => {
-            const value = fieldValue(message?.fields?.[selectedField]);
+            const value = fieldValue(message?.fields?.[effectiveField]);
             if (value != null) currentValue = String(value);
         });
-        if (allFields.length === 0) allFields = CAN_FALLBACK_FIELDS;
     }
 
     return (
@@ -61,7 +71,7 @@ export default function NumberWidget({ shape, mode = "can" }) {
                 </label>
                 <select
                     id={`field-select-${shape.id}`}
-                    value={selectedField}
+                    value={effectiveField}
                     onChange={e => setSelectedField(e.target.value)}
                     style={{
                         width: "100%",
@@ -73,7 +83,7 @@ export default function NumberWidget({ shape, mode = "can" }) {
                         fontSize: "12px",
                     }}
                 >
-                    {allFields.map(field => (
+                    {selectOptions.map(field => (
                         <option key={field} value={field}>
                             {field}
                         </option>

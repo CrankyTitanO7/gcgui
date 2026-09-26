@@ -15,6 +15,20 @@ function Preview({ type }) {
           <div className="preview-line" />
         </div>
       )
+    case 'send':
+      return (
+        <div className="preview-block number">
+          <div className="preview-title">⏎</div>
+          <div className="preview-sub">send</div>
+        </div>
+      )
+    case 'key-send':
+      return (
+        <div className="preview-block number">
+          <div className="preview-title">⌨</div>
+          <div className="preview-sub">keys</div>
+        </div>
+      )
     default:
       return <div className="preview-block" />
   }

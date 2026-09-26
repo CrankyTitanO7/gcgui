@@ -10,6 +10,8 @@ import { CANDataDebugger, CanProcProvider } from "./components/parsers/canproc";
 import { CsvProcProvider } from "./components/parsers/csvproc";
 import RadioWidget from "./components/RadioWidget";
 import RawSerialWidget from "./components/RawSerialWidget";
+import SendWidget from "./components/SendWidget";
+import KeySendWidget from "./components/KeySendWidget";
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from "./utils/config";
 import { parseCSVLog } from "./utils/csvLogParser";
 
@@ -29,6 +31,8 @@ const COMPONENTS = [
     },
     // { type: "bms-status", label: "BMS Status", w: 10, h: 8, defaultName: "BMS Status", defaultField: "" },
     { type: "radio", label: "Radio", w: 6, h: 4, defaultName: "Radio Widget", defaultField: "" },
+    { type: "send", label: "Send", w: 8, h: 5, defaultName: "Send Widget", defaultField: "" },
+    { type: "key-send", label: "Key Send", w: 6, h: 4, defaultName: "Key Send Widget", defaultField: "" },
 ];
 
 const SUPPORTED_TYPES = new Set(COMPONENTS.map(c => c.type));
@@ -172,6 +176,10 @@ function renderComponent(shape, runtimeState = {}) {
         //     return <BMSStatusWidget shape={shape} />;
         case "radio":
             return <RadioWidget />;
+        case "send":
+            return <SendWidget />;
+        case "key-send":
+            return <KeySendWidget />;
         default:
             return <div className="fallback-block">Unsupported widget</div>;
     }
@@ -583,6 +591,10 @@ function App() {
         const handleKeyDown = event => {
             const key = event.key.toLowerCase();
             const typing = isTypingTarget(event.target);
+
+            // Key-Send capture wins over app shortcuts while armed
+            // (Escape is never captured and stays app-level).
+            if (window.__gcguiKeyCapture && event.key !== "Escape") return;
 
             if (event.key === "Escape") {
                 if (propertiesEditor.open) {

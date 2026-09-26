@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './RawSerialWidget.css';
 
 const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
   const [rawData, setRawData] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const contentRef = useRef(null);
   const [replayProgress, setReplayProgress] = useState({ current: 0, total: 0, duration: 0, currentTime: 0 });
 
   useEffect(() => {
@@ -80,6 +82,13 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
     setRawData([]);
   };
 
+  // Stick to the bottom on new lines while autoscroll is locked on.
+  useEffect(() => {
+    if (autoScroll && contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    }
+  }, [rawData, autoScroll]);
+
   return (
     <div className="raw-serial-widget fill">
       <div className="widget-header">
@@ -113,12 +122,19 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
         <div className="raw-data-header">
           <span>Time</span>
           <span>Data</span>
+          <button
+            className={`lock-button ${autoScroll ? 'active' : ''}`}
+            onClick={() => setAutoScroll(v => !v)}
+            title={autoScroll ? 'Autoscroll locked to bottom (click to unlock)' : 'Autoscroll unlocked (click to lock to bottom)'}
+          >
+            {autoScroll ? '🔒 Lock' : '🔓'}
+          </button>
           <button className="clear-button" onClick={clearData} title="Clear data">
             Clear
           </button>
         </div>
         
-        <div className="raw-data-content">
+        <div className="raw-data-content" ref={contentRef}>
           {rawData.length === 0 ? (
             <div className="no-data">
               {dataSource === 'log'

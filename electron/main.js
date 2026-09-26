@@ -415,6 +415,29 @@ ipcMain.on("set-baud-rate", (event, baudRate) => {
     }
 });
 
+// IPC handler to write data to the open serial port.
+// Used by the Send / Key-Send widgets. Payloads are written verbatim
+// (callers add line endings themselves when wanted).
+ipcMain.handle("send-serial-data", async (event, data) => {
+    try {
+        if (!port || !port.isOpen) {
+            return { ok: false, error: "Not connected" };
+        }
+        const payload = typeof data === "string" ? data : String(data ?? "");
+        if (payload.length === 0) {
+            return { ok: false, error: "Empty message" };
+        }
+        await new Promise((resolve, reject) => {
+            port.write(payload, err => (err ? reject(err) : resolve()));
+        });
+        console.log("📤 SENT:", JSON.stringify(payload.slice(0, 200)));
+        return { ok: true };
+    } catch (error) {
+        console.error("❌ Serial write failed:", error);
+        return { ok: false, error: error.message || "Write failed" };
+    }
+});
+
 // IPC handler to inject serial data (used by replay)
 ipcMain.on("inject-serial-data", (event, data) => {
     if (win && win.webContents) {
