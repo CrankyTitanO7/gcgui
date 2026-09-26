@@ -91,37 +91,169 @@ function listSerialPorts() {
 }
 
 // Function to connect to a serial port
-// Function to connect to a serial port - IMPROVED VERSION
-// Function to connect to a serial port - DEBUGGED VERSION
-// Function to connect to a serial port - WITH ARDUINO RESET DELAY
-// Function to connect to a serial port - WITH BAUD RATE SUPPORT
-function connectToPort(portPath, baudRate = currentBaudRate) {
-    console.log("========================================");
-    console.log("🔌 CONNECT REQUEST:", portPath);
-    console.log("   Baud Rate:", baudRate);
-    console.log("========================================");
+// SerialPort locks the device file on Linux, so two concurrent opens on the
+// same path fail with "Resource temporarily unavailable / Cannot lock port".
+// There were two compounding causes:
+//   1. Two ipcMain "connect-serial-port" listeners -> one renderer request
+//      opened the port twice.
+//   2. React StrictMode double-mounts effects in dev -> connect fires twice
+//      back-to-back, and port.close() is async, so the old fd still held the
+//      lock when the new open was attempted.
+// This version dedupes identical requests and always awaits the close before
+// opening, so rapid reconnects (baud change, port reselect, StrictMode)
+// cannot collide.
+let currentPortPath = null;
+let connectSeq = 0;
 
-    // Close existing port if open
-    if (port && port.isOpen) {
-        console.log("⚠️  Closing existing port...");
+function closeCurrentPort() {
+    return new Promise(resolve => {
         try {
-            port.close();
+            if (parser) {
+                try {
+                    parser.removeAllListeners("data");
+                    if (port) port.unpipe(parser);
+                } catch {
+                    // ignore cleanup errors
+                }
+                parser = null;
+            }
+        } catch {
+            parser = null;
+        }
+
+        if (!port) {
+            currentPortPath = null;
+            resolve();
+            return;
+        }
+
+        const p = port;
+        port = null;
+        currentPortPath = null;
+
+        try {
+            p.removeAllListeners("open");
+            p.removeAllListeners("error");
+            // Keep the "close" listener semantics: notify renderer once.
+            // Remove existing close listeners to avoid duplicates, then
+            // re-emit status ourselves after close completes.
+        } catch {
+            // ignore
+        }
+
+        const done = () => {
+            try {
+                p.removeAllListeners();
+            } catch {
+                // ignore
+            }
+            resolve();
+        };
+
+        try {
+            if (p.isOpen || p.opening) {
+                console.log("⚠️  Closing previous port before reconnect...");
+                p.close(err => {
+                    if (err) console.error("Error closing port:", err.message);
+                    else console.log("✅ Previous port closed");
+                    done();
+                });
+            } else {
+                try {
+                    p.removeAllListeners();
+                } catch {
+                    // ignore
+                }
+                resolve();
+            }
         } catch (err) {
             console.error("Error closing port:", err);
+            resolve();
         }
+    });
+}
+
+// Function to connect to a serial port - WITH ARDUINO RESET DELAY
+// Function to connect to a serial port - WITH BAUD RATE SUPPORT
+async function connectToPort(portPath, baudRate = currentBaudRate) {
+    const mySeq = ++connectSeq;
+    const requestedBaud = Number(baudRate) || currentBaudRate;
+
+    console.log("========================================");
+    console.log("🔌 CONNECT REQUEST:", portPath);
+    console.log("   Baud Rate:", requestedBaud);
+    console.log("========================================");
+
+    if (!portPath) {
+        console.error("❌ CONNECT REQUEST with empty path, ignoring");
+        return;
+    }
+
+    // Dedupe: same path already open/opening -> ignore rapid duplicate
+    // (StrictMode double-effect, repeated selects). A genuine baud change
+    // on an open port still falls through to reconnect.
+    if (port && (port.isOpen || port.opening) && currentPortPath === portPath) {
+        if (port.opening) {
+            console.log("⏭️  Already connecting to", portPath, "- ignoring duplicate request");
+            return;
+        }
+        const actualBaud = Number(port.settings?.baudRate ?? port.baudRate ?? currentBaudRate);
+        if (actualBaud === Number(requestedBaud)) {
+            console.log("⏭️  Already connected to", portPath, "- ignoring duplicate request");
+            return;
+        }
+        console.log(`🔄 Baud change ${actualBaud} -> ${requestedBaud}, reconnecting...`);
+    }
+
+    currentBaudRate = requestedBaud;
+    baudRate = requestedBaud;
+
+    // Close existing port if open/opening and wait for the lock to release.
+    await closeCurrentPort();
+    if (mySeq !== connectSeq) {
+        console.log("⏭️  Superseded by newer connect request, aborting:", portPath);
+        return;
     }
 
     try {
-        // Create new port connection with error handling
+        // Create new port connection with error handling.
+        // autoOpen:false so open errors are delivered via callback/'error'
+        // instead of racing the constructor, and so we can set
+        // currentPortPath before the fd is taken.
         console.log("📡 Creating SerialPort instance...");
-        port = new SerialPort({
+        const newPort = new SerialPort({
             path: portPath,
             baudRate: baudRate,
-            autoOpen: true,
+            autoOpen: false,
+        });
+        port = newPort;
+        currentPortPath = portPath;
+
+        // Attach error handler BEFORE open: open failures (EBUSY, ENOENT,
+        // permission) are emitted here, not thrown.
+        port.on("error", err => {
+            console.error("❌ SERIAL PORT ERROR:", err.message);
+            console.error("   Full error:", err);
+            if (err.message && err.message.includes("Cannot lock port")) {
+                console.error(
+                    "   HINT: another process holds the lock (Arduino IDE serial monitor, " +
+                        "a second app instance, or a duplicate open). Close the other holder and retry.",
+                );
+            }
+            if (win && win.webContents) {
+                win.webContents.send("serial-connection-status", false);
+            }
         });
 
         console.log("📡 SerialPort created, setting up parser...");
         parser = port.pipe(new ReadlineParser({ delimiter: "\n" }));
+
+        // Raw byte fallback: if the device sends data without "\n", the
+        // ReadlineParser never emits. This log tells us whether bytes arrive
+        // at all vs. a delimiter mismatch.
+        port.on("data", chunk => {
+            console.log(`📦 RAW BYTES: ${chunk.length} bytes:`, JSON.stringify(chunk.toString("utf8").slice(0, 200)));
+        });
 
         // Handle data reception
         parser.on("data", line => {
@@ -154,6 +286,15 @@ function connectToPort(portPath, baudRate = currentBaudRate) {
 
         // Handle connection events
         port.on("open", () => {
+            if (mySeq !== connectSeq || port !== newPort) {
+                console.log("⏭️  Stale open event, closing:", portPath);
+                try {
+                    newPort.close(() => {});
+                } catch {
+                    // ignore
+                }
+                return;
+            }
             console.log("✅ Serial port OPENED:", portPath);
             console.log("   Baud rate:", port.baudRate);
             console.log("   Path:", port.path);
@@ -177,17 +318,18 @@ function connectToPort(portPath, baudRate = currentBaudRate) {
             }
         });
 
-        port.on("error", err => {
-            console.error("❌ SERIAL PORT ERROR:", err.message);
-            console.error("   Full error:", err);
-            if (win && win.webContents) {
-                win.webContents.send("serial-connection-status", false);
+        console.log("✅ Port setup complete, opening...");
+        port.open(err => {
+            if (err) {
+                // 'error' listener above already notified the renderer.
+                console.error("❌ FAILED to open serial port:", err.message);
+                return;
             }
+            console.log("✅ Port open() succeeded, waiting for data...");
         });
-
-        console.log("✅ Port setup complete, waiting for data...");
     } catch (error) {
         console.error("❌ FAILED to create serial port:", error);
+        await closeCurrentPort();
         if (win && win.webContents) {
             win.webContents.send("serial-connection-status", false);
         }
@@ -205,8 +347,11 @@ ipcMain.handle("get-serial-ports", async () => {
     }
 });
 
-ipcMain.on("connect-serial-port", (event, portPath) => {
-    connectToPort(portPath);
+// Single connect handler (baud rate optional). A duplicate listener here
+// previously caused every request to open the port twice -> EBUSY.
+ipcMain.on("connect-serial-port", (event, portPath, baudRate) => {
+    if (!portPath) return;
+    connectToPort(portPath, baudRate ? Number(baudRate) : currentBaudRate);
 });
 
 ipcMain.handle("start-live-recording", async () => {
@@ -229,22 +374,26 @@ ipcMain.handle("stop-live-recording", async () => {
     }
 });
 
-ipcMain.on("disconnect-serial-port", () => {
-    if (port && port.isOpen) {
-        port.close();
+ipcMain.on("disconnect-serial-port", async () => {
+    connectSeq++; // invalidate any in-flight connect
+    await closeCurrentPort();
+    if (win && win.webContents) {
+        win.webContents.send("serial-connection-status", false);
     }
 });
 
 // Handle baud rate changes
 ipcMain.on("set-baud-rate", (event, baudRate) => {
+    baudRate = Number(baudRate);
+    if (!baudRate) return;
     console.log("🔧 Baud rate changed to:", baudRate);
     currentBaudRate = baudRate;
 
     // If currently connected, reconnect with new baud rate
-    if (port && port.isOpen) {
-        const currentPortPath = port.path;
+    if (currentPortPath) {
+        const reconnectPath = currentPortPath;
         console.log("🔄 Reconnecting with new baud rate...");
-        connectToPort(currentPortPath, baudRate);
+        connectToPort(reconnectPath, baudRate);
     }
 });
 
@@ -491,14 +640,8 @@ ipcMain.handle("seek-replay", async (event, index) => {
     }
 });
 
-// Handle connect-serial-port with baud rate parameter
-ipcMain.on("connect-serial-port", (event, portPath, baudRate) => {
-    if (baudRate) {
-        connectToPort(portPath, baudRate);
-    } else {
-        connectToPort(portPath);
-    }
-});
+// (connect-serial-port is handled once near the top of this file;
+// the old second listener here was removed to prevent double-opens.)
 
 function attachDebugShortcuts(win) {
     if (!isDebugToolsEnabled) return;
