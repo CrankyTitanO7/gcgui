@@ -11,6 +11,7 @@ import { CsvProcProvider } from "./components/parsers/csvproc";
 import RadioWidget from "./components/RadioWidget";
 import RawSerialWidget from "./components/RawSerialWidget";
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from "./utils/config";
+import { parseCSVLog } from "./utils/csvLogParser";
 
 const GRID_SIZE = 28;
 
@@ -215,11 +216,17 @@ function App() {
     const [seekTrigger, setSeekTrigger] = useState(0);
 
     // ---------------------------------------------------------------------------
-    // Inject a single CAN message through the normal serial channel
+    // Inject a single message through the normal serial channel.
+    // CAN messages are reconstructed in CRTD line format; CSV messages
+    // replay as their raw line (both feed every parser via "serial-data").
     // ---------------------------------------------------------------------------
 
     function injectMessage(message) {
         if (!message || !window.electronAPI?.injectSerialData) return;
+        if (message.kind === "csv" || !message.dataBytes) {
+            window.electronAPI.injectSerialData(message.raw);
+            return;
+        }
         const dataHex = message.dataBytes.map(b => b.toString(16).toUpperCase().padStart(2, "0")).join(" ");
         window.electronAPI.injectSerialData(`${message.timestamp} ${message.direction}${message.canIdRaw} ${dataHex}`);
     }
@@ -348,7 +355,7 @@ function App() {
         if (!api?.startLiveRecording || !api?.stopLiveRecording) return;
         const shouldRecord = dataSource === "live" && isRunning && Boolean(usbPort?.trim());
         if (shouldRecord) {
-            api.startLiveRecording()
+            api.startLiveRecording(protocol)
                 .then(r => {
                     if (!r?.ok) console.error("Failed to start live recording:", r?.error);
                 })
@@ -356,7 +363,7 @@ function App() {
         } else {
             api.stopLiveRecording().catch(err => console.error("Failed to stop live recording:", err));
         }
-    }, [dataSource, isRunning, usbPort]);
+    }, [dataSource, isRunning, usbPort, protocol]);
 
     useEffect(() => {
         return () => {
@@ -367,7 +374,7 @@ function App() {
     }, []);
 
     // ---------------------------------------------------------------------------
-    // CRTD file parsing
+    // Log file parsing (CRTD for CAN, raw CSV for CSV — by file extension)
     // ---------------------------------------------------------------------------
 
     useEffect(() => {
@@ -384,6 +391,32 @@ function App() {
                     reader.onerror = () => reject(new Error("Failed to read file"));
                     reader.readAsText(logFile);
                 });
+
+                // CSV replay: raw "time, value1, value2, ..." lines
+                if (logFile.name?.toLowerCase().endsWith(".csv")) {
+                    const parsed = parseCSVLog(content);
+                    if (parsed.messages.length === 0) {
+                        console.error("Empty CSV file (no data rows)");
+                        setReplayInfo(null);
+                        return;
+                    }
+                    console.log(`✅ Parsed ${parsed.messages.length} rows from CSV file`);
+
+                    // Always reset position when a new file is loaded
+                    replayIndexRef.current = 0;
+                    setReplayCurrentIndex(0);
+                    setReplayStatus({ isPlaying: false, completed: false });
+                    setReplayInfo({
+                        header: parsed.header,
+                        messages: parsed.messages,
+                        messageCount: parsed.messages.length,
+                        duration:
+                            parsed.messages.length > 0
+                                ? parsed.messages[parsed.messages.length - 1].timestamp
+                                : 0,
+                    });
+                    return;
+                }
 
                 const lines = content.split("\n").filter(l => l.trim());
                 if (lines.length === 0) {
@@ -421,6 +454,7 @@ function App() {
                     if (dataBytes.length === 0) continue;
 
                     messages.push({
+                        kind: "can",
                         timestamp,
                         direction,
                         canId: "0x" + parseInt(canId, 16).toString(16).toLowerCase(),

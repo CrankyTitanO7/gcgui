@@ -14,6 +14,7 @@ let currentBaudRate = 115200;
 let recordingEnabled = false;
 let recordingFd = null;
 let recordingFilePath = null;
+let recordingFormat = null; // 'csv' for raw CSV capture, otherwise CRTD (CAN)
 
 function getRecordingDirectory() {
     return path.join(app.getPath("documents"), "gcgui-recordings");
@@ -23,23 +24,38 @@ function getTimestampForFilename() {
     return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
-function startLiveRecording() {
+function startLiveRecording(format) {
+    const normalized = format === "csv" ? "csv" : "can";
+
     if (recordingEnabled && recordingFd !== null && recordingFilePath) {
-        return recordingFilePath;
+        if (recordingFormat === normalized) {
+            return recordingFilePath;
+        }
+        // Protocol switched mid-run: close the old file so each recording
+        // keeps a single format/extension.
+        stopLiveRecording();
     }
 
     const dir = getRecordingDirectory();
     fs.mkdirSync(dir, { recursive: true });
 
-    const filePath = path.join(dir, `live-${getTimestampForFilename()}.crtd`);
+    const ext = normalized === "csv" ? "csv" : "crtd";
+    const filePath = path.join(dir, `live-${getTimestampForFilename()}.${ext}`);
     const fd = fs.openSync(filePath, "a");
 
-    fs.writeSync(fd, `CXXRTL gcgui live capture ${new Date().toISOString()}\n`);
+    // CSV captures just the raw CSV lines; the '#' comment marks provenance
+    // and is skipped by the replay parser.
+    const header =
+        normalized === "csv"
+            ? `# gcgui csv live capture ${new Date().toISOString()}\n`
+            : `CXXRTL gcgui live capture ${new Date().toISOString()}\n`;
+    fs.writeSync(fd, header);
     fs.fsyncSync(fd);
 
     recordingEnabled = true;
     recordingFd = fd;
     recordingFilePath = filePath;
+    recordingFormat = normalized;
 
     console.log("📝 Live recording started:", filePath);
     return filePath;
@@ -49,6 +65,7 @@ function stopLiveRecording() {
     if (recordingFd === null) {
         recordingEnabled = false;
         recordingFilePath = null;
+        recordingFormat = null;
         return;
     }
 
@@ -57,6 +74,7 @@ function stopLiveRecording() {
     recordingEnabled = false;
     recordingFd = null;
     recordingFilePath = null;
+    recordingFormat = null;
 
     try {
         fs.closeSync(fd);
@@ -354,9 +372,9 @@ ipcMain.on("connect-serial-port", (event, portPath, baudRate) => {
     connectToPort(portPath, baudRate ? Number(baudRate) : currentBaudRate);
 });
 
-ipcMain.handle("start-live-recording", async () => {
+ipcMain.handle("start-live-recording", async (event, format) => {
     try {
-        const filePath = startLiveRecording();
+        const filePath = startLiveRecording(format);
         return { ok: true, filePath };
     } catch (error) {
         console.error("❌ Failed to start live recording:", error);

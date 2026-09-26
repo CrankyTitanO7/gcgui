@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSerialPorts: () => ipcRenderer.invoke('get-serial-ports'),
   connectSerialPort: (path, baudRate) => ipcRenderer.send('connect-serial-port', path, baudRate),
   disconnectSerialPort: () => ipcRenderer.send('disconnect-serial-port'),
-  startLiveRecording: () => ipcRenderer.invoke('start-live-recording'),
+  startLiveRecording: (protocol) => ipcRenderer.invoke('start-live-recording', protocol),
   stopLiveRecording: () => ipcRenderer.invoke('stop-live-recording'),
   
   onSerialData: (callback) => {
