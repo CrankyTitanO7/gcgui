@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CLEAR_ALL_EVENT } from '../utils/clearAll';
 import './RawSerialWidget.css';
 
 const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
@@ -81,6 +82,12 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
   const clearData = () => {
     setRawData([]);
   };
+
+  useEffect(() => {
+    const handleClearAll = () => setRawData([]);
+    window.addEventListener(CLEAR_ALL_EVENT, handleClearAll);
+    return () => window.removeEventListener(CLEAR_ALL_EVENT, handleClearAll);
+  }, []);
 
   // Stick to the bottom on new lines while autoscroll is locked on.
   useEffect(() => {

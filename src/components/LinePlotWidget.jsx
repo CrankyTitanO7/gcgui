@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "../App.css";
+import { CLEAR_ALL_EVENT } from "../utils/clearAll";
 import { computeBounds, formatTick, scalePoints } from "../utils/plotMath";
 import { useCANDataHook } from "./parsers/canproc";
 import { useCSVDataHook } from "./parsers/csvproc";
@@ -65,6 +66,12 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
             setDataPoints(prev => [...prev, currentValue].slice(-HISTORY_LIMIT));
         }
     }, [canData, csvMessage, effectiveField, isCSV]);
+
+    useEffect(() => {
+        const handleClearAll = () => setDataPoints([]);
+        window.addEventListener(CLEAR_ALL_EVENT, handleClearAll);
+        return () => window.removeEventListener(CLEAR_ALL_EVENT, handleClearAll);
+    }, []);
 
     const innerW = PLOT_W - PAD.left - PAD.right;
     const innerH = PLOT_H - PAD.top - PAD.bottom;

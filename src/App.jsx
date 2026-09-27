@@ -13,6 +13,7 @@ import RawSerialWidget from "./components/RawSerialWidget";
 import SendWidget from "./components/SendWidget";
 import KeySendWidget from "./components/KeySendWidget";
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from "./utils/config";
+import { emitClearAll } from "./utils/clearAll";
 import { parseCSVLog } from "./utils/csvLogParser";
 
 const GRID_SIZE = 28;
@@ -204,6 +205,7 @@ function App() {
     const [isScanning, setIsScanning] = useState(false);
     const [logFile, setLogFile] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
+    const [isClearingAll, setIsClearingAll] = useState(false);
     const [replayInfo, setReplayInfo] = useState(null);
     const [, setReplayStatus] = useState({ isPlaying: false, completed: false });
     const [layoutLocked, setLayoutLocked] = useState(false);
@@ -283,6 +285,38 @@ function App() {
         if (isRunning) {
             replayCancelRef.current = true;
             setSeekTrigger(t => t + 1);
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Clear All — clears graph + serial widgets, then rotates the live
+    // recording (stop current file, begin a new one) when recording.
+    // ---------------------------------------------------------------------------
+
+    async function handleClearAll() {
+        if (isClearingAll) return;
+        setIsClearingAll(true);
+        try {
+            emitClearAll();
+
+            const api = window.electronAPI;
+            const shouldRotateRecording =
+                dataSource === "live" && isRunning && Boolean(usbPort?.trim()) && api?.stopLiveRecording && api?.startLiveRecording;
+            if (shouldRotateRecording) {
+                try {
+                    await api.stopLiveRecording();
+                } catch (err) {
+                    console.error("Failed to stop live recording on clear all:", err);
+                }
+                try {
+                    const r = await api.startLiveRecording(protocol);
+                    if (!r?.ok) console.error("Failed to start live recording on clear all:", r?.error);
+                } catch (err) {
+                    console.error("Failed to start live recording on clear all:", err);
+                }
+            }
+        } finally {
+            setIsClearingAll(false);
         }
     }
 
@@ -782,6 +816,8 @@ function App() {
                         availablePorts={availablePorts}
                         isScanning={isScanning}
                         onRefreshPorts={refreshPorts}
+                        onClearAll={handleClearAll}
+                        isClearingAll={isClearingAll}
                     />
 
                     {/* Transport bar — only visible in log replay mode */}

@@ -18,6 +18,8 @@ export default function ControlBar({
     availablePorts = [],
     isScanning = false,
     onRefreshPorts,
+    onClearAll,
+    isClearingAll = false,
 }) {
     const fileInputRef = useRef(null);
 
@@ -186,6 +188,14 @@ export default function ControlBar({
                     }
                 >
                     {isRunning ? "⏸ Pause" : "▶ Start"}
+                </button>
+                <button
+                    className="control-button"
+                    onClick={onClearAll}
+                    disabled={isClearingAll}
+                    title="Clear graphs + serial and start a new recording"
+                >
+                    {isClearingAll ? "⏳ Clearing…" : "🧹 Clear All"}
                 </button>
             </div>
 
