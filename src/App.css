@@ -1002,6 +1002,36 @@
   letter-spacing: 0.2px;
 }
 
+.line-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.line-widget-clear {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #171c3d;
+  color: #d7d9e5;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.line-widget-clear:hover:not(:disabled) {
+  background: #1f2348;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.line-widget-clear:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .widget-field {
   margin-top: 8px;
   font-size: 11px;

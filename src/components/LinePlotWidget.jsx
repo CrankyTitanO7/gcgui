@@ -88,9 +88,23 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
 
     const currentValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1] : null;
 
+    const handleClear = () => setDataPoints([]);
+
     return (
         <div className="line-widget fill">
-            <div className="widget-name">{shape.name || "Line Plot Widget"}</div>
+            <div className="line-widget-header">
+                <div className="widget-name">{shape.name || "Line Plot Widget"}</div>
+                <button
+                    type="button"
+                    className="line-widget-clear"
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={handleClear}
+                    disabled={dataPoints.length === 0}
+                    title="Clear graph history"
+                >
+                    Clear
+                </button>
+            </div>
 
             <div className="line-widget-readout">
                 <span className="line-widget-value">{currentValue ?? "N/A"}</span>
