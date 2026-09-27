@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "../App.css";
 import { CLEAR_ALL_EVENT } from "../utils/clearAll";
 import { computeBounds, formatTick, scalePoints } from "../utils/plotMath";
+import { colorForSeriesIndex } from "../utils/seriesColors";
 import { useCANDataHook } from "./parsers/canproc";
 import { useCSVDataHook } from "./parsers/csvproc";
 
@@ -23,7 +24,9 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
     const { csvData } = useCSVDataHook();
     const isCSV = mode === "csv";
     const [selectedField, setSelectedField] = useState(shape.dataField || (isCSV ? "datapoint 1" : "RPM"));
-    const [dataPoints, setDataPoints] = useState([]);
+    const [multiEnabled, setMultiEnabled] = useState(false);
+    const [checkedFields, setCheckedFields] = useState(null);
+    const [dataByField, setDataByField] = useState({});
 
     const csvMessage = isCSV ? csvData.csv : undefined;
     const csvFieldNames = Object.keys(csvMessage?.fields ?? {});
@@ -51,51 +54,112 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
         : (visibleFields[0] ?? selectedField);
     const selectOptions = visibleFields.length > 0 ? visibleFields : [effectiveField];
 
-    useEffect(() => {
-        let currentValue = null;
-        if (isCSV) {
-            const value = fieldValue(csvMessage?.fields?.[effectiveField]);
-            if (typeof value === "number" && !Number.isNaN(value)) currentValue = value;
-        } else {
-            Object.values(canData).forEach(message => {
-                const value = fieldValue(message?.fields?.[effectiveField]);
-                if (typeof value === "number" && !Number.isNaN(value)) currentValue = value;
-            });
-        }
-        if (currentValue !== null) {
-            setDataPoints(prev => [...prev, currentValue].slice(-HISTORY_LIMIT));
-        }
-    }, [canData, csvMessage, effectiveField, isCSV]);
+    // Active series: single selection, or the checked checkbox set in multi mode.
+    const activeFields = useMemo(() => {
+        if (!multiEnabled) return [effectiveField];
+        const list = (checkedFields ?? [effectiveField]).filter(f => f !== "time");
+        return [...new Set(list)];
+    }, [multiEnabled, checkedFields, effectiveField]);
+    const fieldsKey = activeFields.join("\0");
+
+    // Tracks the last processed tick so toggling checkboxes seeds newly added
+    // fields without duplicating points for already-tracked ones.
+    const lastTickRef = useRef({ canData: null, csvMessage: null, fieldsKey: null });
 
     useEffect(() => {
-        const handleClearAll = () => setDataPoints([]);
+        const prev = lastTickRef.current;
+        const dataChanged = prev.canData !== canData || prev.csvMessage !== csvMessage;
+        let targets;
+        if (dataChanged) {
+            targets = activeFields;
+        } else if (prev.fieldsKey !== fieldsKey) {
+            const prevSet = new Set((prev.fieldsKey ?? "").split("\0"));
+            targets = activeFields.filter(f => !prevSet.has(f));
+        } else {
+            return;
+        }
+        lastTickRef.current = { canData, csvMessage, fieldsKey };
+        if (targets.length === 0) return;
+
+        const next = {};
+        for (const field of targets) {
+            let currentValue = null;
+            if (isCSV) {
+                const value = fieldValue(csvMessage?.fields?.[field]);
+                if (typeof value === "number" && !Number.isNaN(value)) currentValue = value;
+            } else {
+                Object.values(canData).forEach(message => {
+                    const value = fieldValue(message?.fields?.[field]);
+                    if (typeof value === "number" && !Number.isNaN(value)) currentValue = value;
+                });
+            }
+            if (currentValue !== null) next[field] = currentValue;
+        }
+        if (Object.keys(next).length > 0) {
+            setDataByField(prevData => {
+                const out = { ...prevData };
+                for (const [field, value] of Object.entries(next)) {
+                    out[field] = [...(out[field] ?? []), value].slice(-HISTORY_LIMIT);
+                }
+                return out;
+            });
+        }
+    }, [canData, csvMessage, fieldsKey, activeFields, isCSV]);
+
+    useEffect(() => {
+        const handleClearAll = () => setDataByField({});
         window.addEventListener(CLEAR_ALL_EVENT, handleClearAll);
         return () => window.removeEventListener(CLEAR_ALL_EVENT, handleClearAll);
     }, []);
 
+    const toggleMulti = () => {
+        if (!multiEnabled) setCheckedFields([effectiveField]);
+        setMultiEnabled(v => !v);
+    };
+
+    const toggleField = field => {
+        setCheckedFields(prev => {
+            const base = prev ?? [effectiveField];
+            return base.includes(field) ? base.filter(f => f !== field) : [...base, field];
+        });
+    };
+
     const innerW = PLOT_W - PAD.left - PAD.right;
     const innerH = PLOT_H - PAD.top - PAD.bottom;
-    const bounds = computeBounds(dataPoints);
-    const points = bounds ? scalePoints(dataPoints, innerW, innerH, bounds) : [];
+    const allValues = activeFields.flatMap(field => dataByField[field] ?? []);
+    const bounds = computeBounds(allValues);
 
-    const linePath =
-        points.length === 1
-            ? `M 0 ${points[0].y.toFixed(1)} L ${innerW.toFixed(1)} ${points[0].y.toFixed(1)}`
-            : points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
-    const areaPath =
-        points.length > 0
-            ? `${linePath} L ${innerW.toFixed(1)} ${innerH.toFixed(1)} L 0 ${innerH.toFixed(1)} Z`
-            : "";
-    const lastPoint = points.length > 0 ? points[points.length - 1] : null;
+    const seriesList = activeFields.map((field, i) => {
+        const data = dataByField[field] ?? [];
+        const points = bounds && data.length > 0 ? scalePoints(data, innerW, innerH, bounds) : [];
+        const linePath =
+            points.length === 1
+                ? `M 0 ${points[0].y.toFixed(1)} L ${innerW.toFixed(1)} ${points[0].y.toFixed(1)}`
+                : points.map((p, k) => `${k === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+        const areaPath =
+            points.length > 0
+                ? `${linePath} L ${innerW.toFixed(1)} ${innerH.toFixed(1)} L 0 ${innerH.toFixed(1)} Z`
+                : "";
+        return {
+            field,
+            color: colorForSeriesIndex(i),
+            data,
+            points,
+            linePath,
+            areaPath,
+            lastPoint: points.length > 0 ? points[points.length - 1] : null,
+            currentValue: data.length > 0 ? data[data.length - 1] : null,
+        };
+    });
 
     const yTickValues =
         bounds != null
             ? Array.from({ length: Y_TICKS }, (_, i) => bounds.min + ((bounds.max - bounds.min) * i) / (Y_TICKS - 1))
             : [];
 
-    const currentValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1] : null;
-
-    const handleClear = () => setDataPoints([]);
+    const totalPoints = seriesList.reduce((n, s) => n + s.data.length, 0);
+    const handleClear = () => setDataByField({});
+    const single = seriesList[0];
 
     return (
         <div className="line-widget fill">
@@ -106,32 +170,45 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
                     className="line-widget-clear"
                     onMouseDown={e => e.stopPropagation()}
                     onClick={handleClear}
-                    disabled={dataPoints.length === 0}
+                    disabled={totalPoints === 0}
                     title="Clear graph history"
                 >
                     Clear
                 </button>
             </div>
 
-            <div className="line-widget-readout">
-                <span className="line-widget-value">{currentValue ?? "N/A"}</span>
-                <span className="line-widget-field">{effectiveField}</span>
-                {bounds && (
-                    <span className="line-widget-range">
-                        {formatTick(bounds.min)} – {formatTick(bounds.max)}
-                    </span>
-                )}
-            </div>
+            {multiEnabled ? (
+                <div className="line-widget-legend">
+                    {seriesList.map(s => (
+                        <span key={s.field} className="line-widget-legend-item">
+                            <span className="multi-dot" style={{ background: s.color }} />
+                            <span className="line-widget-legend-field">{s.field}</span>
+                            <span className="line-widget-legend-value">{s.currentValue ?? "N/A"}</span>
+                        </span>
+                    ))}
+                    {bounds && <span className="line-widget-range">{formatTick(bounds.min)} – {formatTick(bounds.max)}</span>}
+                </div>
+            ) : (
+                <div className="line-widget-readout">
+                    <span className="line-widget-value">{single?.currentValue ?? "N/A"}</span>
+                    <span className="line-widget-field">{effectiveField}</span>
+                    {bounds && (
+                        <span className="line-widget-range">
+                            {formatTick(bounds.min)} – {formatTick(bounds.max)}
+                        </span>
+                    )}
+                </div>
+            )}
 
             <div className="line-widget-canvas">
-                {points.length === 0 ? (
+                {totalPoints === 0 ? (
                     <div className="line-widget-empty">Waiting for data…</div>
                 ) : (
                     <svg viewBox={`0 0 ${PLOT_W} ${PLOT_H}`} className="line-plot-svg" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id={`plot-fill-${shape.id}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#4caf50" stopOpacity="0.35" />
-                                <stop offset="100%" stopColor="#4caf50" stopOpacity="0.02" />
+                                <stop offset="0%" stopColor={single?.color ?? "#4caf50"} stopOpacity="0.35" />
+                                <stop offset="100%" stopColor={single?.color ?? "#4caf50"} stopOpacity="0.02" />
                             </linearGradient>
                         </defs>
 
@@ -170,41 +247,87 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
                         />
 
                         <g transform={`translate(${PAD.left},${PAD.top})`}>
-                            {areaPath && <path d={areaPath} fill={`url(#plot-fill-${shape.id})`} />}
-                            {linePath && <path d={linePath} className="line-plot-path" vectorEffect="non-scaling-stroke" />}
-                            {lastPoint && <circle cx={lastPoint.x} cy={lastPoint.y} r={3} className="line-plot-dot" />}
+                            {!multiEnabled && single?.areaPath && (
+                                <path d={single.areaPath} fill={`url(#plot-fill-${shape.id})`} />
+                            )}
+                            {seriesList.map(s =>
+                                s.linePath ? (
+                                    <path
+                                        key={s.field}
+                                        d={s.linePath}
+                                        fill="none"
+                                        stroke={s.color}
+                                        strokeWidth={2}
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                ) : null,
+                            )}
+                            {seriesList.map(s =>
+                                s.lastPoint ? (
+                                    <circle key={s.field} cx={s.lastPoint.x} cy={s.lastPoint.y} r={3} fill={s.color} stroke="#0c2213" strokeWidth={1.5} />
+                                ) : null,
+                            )}
                         </g>
                     </svg>
                 )}
             </div>
 
             <div className="widget-controls">
-                <label
-                    htmlFor={`line-field-select-${shape.id}`}
-                    style={{ fontSize: "11px", color: "#888", marginBottom: "4px", display: "block" }}
-                >
-                    Select Field:
-                </label>
-                <select
-                    id={`line-field-select-${shape.id}`}
-                    value={effectiveField}
-                    onChange={e => setSelectedField(e.target.value)}
-                    style={{
-                        width: "100%",
-                        padding: "6px 8px",
-                        borderRadius: "6px",
-                        border: "1px solid #444",
-                        background: "#2a2a2a",
-                        color: "#fff",
-                        fontSize: "12px",
-                    }}
-                >
-                    {selectOptions.map(field => (
-                        <option key={field} value={field}>
-                            {field}
-                        </option>
-                    ))}
-                </select>
+                <div className="line-widget-controls-row">
+                    <label
+                        htmlFor={`line-field-select-${shape.id}`}
+                        style={{ fontSize: "11px", color: "#888", display: "block" }}
+                    >
+                        Select Field:
+                    </label>
+                    <button
+                        type="button"
+                        className={`line-widget-multi-toggle${multiEnabled ? " active" : ""}`}
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={toggleMulti}
+                        title={multiEnabled ? "Back to single-line plotting" : "Plot multiple fields at once"}
+                    >
+                        {multiEnabled ? "Multi ✓" : "Multi"}
+                    </button>
+                </div>
+                {!multiEnabled ? (
+                    <select
+                        id={`line-field-select-${shape.id}`}
+                        value={effectiveField}
+                        onChange={e => setSelectedField(e.target.value)}
+                        style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            borderRadius: "6px",
+                            border: "1px solid #444",
+                            background: "#2a2a2a",
+                            color: "#fff",
+                            fontSize: "12px",
+                        }}
+                    >
+                        {selectOptions.map(field => (
+                            <option key={field} value={field}>
+                                {field}
+                            </option>
+                        ))}
+                    </select>
+                ) : (
+                    <div className="multi-list" onMouseDown={e => e.stopPropagation()}>
+                        {selectOptions.map(field => {
+                            const idx = activeFields.indexOf(field);
+                            const checked = idx !== -1;
+                            return (
+                                <label key={field} className="multi-option">
+                                    <input type="checkbox" checked={checked} onChange={() => toggleField(field)} />
+                                    <span className="multi-dot" style={{ background: checked ? colorForSeriesIndex(idx) : "#555" }} />
+                                    <span className="multi-option-label">{field}</span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );
