@@ -41,10 +41,16 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: release-${{ matrix.os }}
+                  # Installers plus electron-updater metadata: latest*.yml is the
+                  # update feed, *.blockmap enables small differential downloads,
+                  # and the mac zip backs Squirrel.Mac version checks.
                   path: |
                       release/*.dmg
+                      release/*.zip
                       release/*.AppImage
                       release/*.exe
+                      release/*.yml
+                      release/*.blockmap
                   if-no-files-found: error
 
     release:

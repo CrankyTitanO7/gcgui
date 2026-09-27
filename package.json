@@ -1,6 +1,6 @@
 {
     "name": "gcgui",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "ground control GUI - An Electron app for reading information over serial",
     "author": "Yale Project Liquid | Yale Undergraduate Aerospace Association",
     "main": "electron/main.js",
@@ -15,12 +15,13 @@
         "lint:fix": "oxlint --fix",
         "test": "vitest run"
     },
-    "repository": {
+        "repository": {
         "type": "git",
-        "url": "https://github.com/CrankyTitanO7/gcgui.git"
+        "url": "https://github.com/Project-Liquid/gcgui.git"
     },
     "dependencies": {
         "@serialport/parser-readline": "^13.0.0",
+        "electron-updater": "^6.8.9",
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
         "react-router-dom": "^7.18.4",
@@ -42,7 +43,9 @@
         "appId": "com.yourname.pitwall",
         "productName": "Pitwall",
         "publish": {
-            "provider": "github"
+            "provider": "github",
+            "owner": "Project-Liquid",
+            "repo": "gcgui"
         },
         "files": [
             "dist/**/*",

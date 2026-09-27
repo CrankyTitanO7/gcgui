@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -705,6 +705,139 @@ function attachDebugShortcuts(win) {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Self-updates (electron-updater, GitHub Releases feed from package.json
+// build.publish). No-ops in dev (app.isPackaged === false).
+//   Windows/Linux: prompted download, installed on restart.
+//   macOS: notify-only — unsigned builds cannot self-install, so the dialog
+//   links out to GitHub Releases for a manual re-download.
+// ---------------------------------------------------------------------------
+const UPDATE_OWNER = "Project-Liquid";
+const UPDATE_REPO = "gcgui";
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+let checkForUpdatesFn = null;
+
+function releasesUrl() {
+    return `https://github.com/${UPDATE_OWNER}/${UPDATE_REPO}/releases`;
+}
+
+function showUpdateBox(options) {
+    return win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options);
+}
+
+function setupAutoUpdates() {
+    if (!app.isPackaged) return;
+
+    let autoUpdater;
+    try {
+        ({ autoUpdater } = require("electron-updater"));
+    } catch (err) {
+        console.error("❌ auto-updater unavailable:", err?.message || err);
+        return;
+    }
+
+    // Prompted flow: never download without the user accepting first.
+    autoUpdater.autoDownload = false;
+    // Once downloaded, install on quit even if the user deferred the restart.
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    // True while a manual (menu-triggered) check is awaiting its outcome,
+    // so "you're up to date" is only shown when the user asked.
+    let manualCheckPending = false;
+
+    const checkForUpdates = (manual = false) => {
+        manualCheckPending = manual;
+        autoUpdater.checkForUpdates().catch(err => {
+            console.error("❌ Update check failed:", err?.message || err);
+            manualCheckPending = false;
+            if (manual) {
+                showUpdateBox({
+                    type: "warning",
+                    title: "Update check failed",
+                    message: "Could not check for updates.",
+                    detail: String(err?.message || err),
+                    buttons: ["OK"],
+                });
+            }
+        });
+    };
+    checkForUpdatesFn = checkForUpdates;
+
+    autoUpdater.on("error", err => {
+        console.error("❌ auto-updater error:", err?.message || err);
+    });
+
+    autoUpdater.on("update-available", info => {
+        manualCheckPending = false;
+        console.log(`⬆️ Update available: ${info.version}`);
+        if (process.platform === "darwin") {
+            showUpdateBox({
+                type: "info",
+                title: "Update available",
+                message: `Version ${info.version} is available (you have ${app.getVersion()}).`,
+                detail: "macOS builds cannot update themselves. Please re-download the latest release from GitHub to update.",
+                buttons: ["Open GitHub Releases", "Later"],
+                defaultId: 0,
+            }).then(({ response }) => {
+                if (response === 0) shell.openExternal(releasesUrl());
+            });
+            return;
+        }
+        showUpdateBox({
+            type: "info",
+            title: "Update available",
+            message: `Version ${info.version} is available (you have ${app.getVersion()}).`,
+            detail: "Download it now? It will be installed when you restart the app.",
+            buttons: ["Download & Install on Restart", "Later"],
+            defaultId: 0,
+        }).then(({ response }) => {
+            if (response === 0) {
+                autoUpdater.downloadUpdate().catch(err => {
+                    console.error("❌ Update download failed:", err?.message || err);
+                    showUpdateBox({
+                        type: "warning",
+                        title: "Update download failed",
+                        message: "Could not download the update.",
+                        detail: String(err?.message || err),
+                        buttons: ["OK"],
+                    });
+                });
+            }
+        });
+    });
+
+    autoUpdater.on("update-downloaded", info => {
+        // macOS never downloads (notify-only path above), nothing to install.
+        if (process.platform === "darwin") return;
+        console.log(`✅ Update downloaded: ${info.version}`);
+        showUpdateBox({
+            type: "info",
+            title: "Update ready",
+            message: `Version ${info.version} is downloaded and will be installed on restart.`,
+            buttons: ["Restart Now", "Later"],
+            defaultId: 0,
+        }).then(({ response }) => {
+            if (response === 0) autoUpdater.quitAndInstall();
+        });
+    });
+
+    autoUpdater.on("update-not-available", () => {
+        if (!manualCheckPending) return;
+        manualCheckPending = false;
+        showUpdateBox({
+            type: "info",
+            title: "No updates",
+            message: `You're on the latest version (${app.getVersion()}).`,
+            buttons: ["OK"],
+        });
+    });
+
+    // Delayed startup check (never slows down launch) + periodic re-check.
+    setTimeout(() => checkForUpdates(false), 20000);
+    setInterval(() => checkForUpdates(false), UPDATE_CHECK_INTERVAL_MS);
+}
+
 function createWindow() {
     win = new BrowserWindow({
         width: 1200,
@@ -740,12 +873,27 @@ function createWindow() {
 
 app.whenReady().then(() => {
     createWindow();
+    setupAutoUpdates();
 
     // Create custom menu with baud rate dropdown after window is created
     const menuTemplate = [
         {
             label: "File",
             submenu: [
+                {
+                    label: "Check for Updates…",
+                    click: () => {
+                        if (checkForUpdatesFn) checkForUpdatesFn(true);
+                        else {
+                            showUpdateBox({
+                                type: "info",
+                                title: "Updates",
+                                message: "Update checks only run in packaged builds.",
+                                buttons: ["OK"],
+                            });
+                        }
+                    },
+                },
                 {
                     label: "Exit",
                     accelerator: "CmdOrCtrl+Q",
