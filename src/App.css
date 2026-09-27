@@ -1302,3 +1302,123 @@
     linear-gradient(180deg, #1a2248, #11152f);
 }
 
+.history-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.history-modal {
+  width: min(980px, 100%);
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  background: #0d1230;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.history-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.history-header h3 {
+  margin: 0;
+  color: #edf1ff;
+  font-size: 18px;
+}
+
+.history-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8f94b5;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  color: #d7d9e5;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.history-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.history-controls label {
+  font-size: 12px;
+  color: #acb5dc;
+  font-weight: 600;
+}
+
+.history-controls select {
+  min-width: 220px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #171d40;
+  color: #ecf1ff;
+  padding: 0 10px;
+  outline: none;
+  font-size: 13px;
+}
+
+.history-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: #7c84a8;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.history-canvas {
+  position: relative;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  min-height: 200px;
+  overflow: hidden;
+}
+
+.history-svg {
+  cursor: crosshair;
+}
+
+.history-playhead {
+  stroke: #ffca28;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+.history-range {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #7c84a8;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+

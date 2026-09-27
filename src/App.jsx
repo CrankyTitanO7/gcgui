@@ -3,6 +3,7 @@ import "./App.css";
 // import BMSStatusWidget from "./components/BMS";
 import ControlBar from "./components/ControlBar";
 import Editor from "./components/Editor";
+import FullHistoryGraph from "./components/FullHistoryGraph";
 import LinePlotWidget from "./components/LinePlotWidget";
 import NumberWidget from "./components/NumberWidget";
 import Palette from "./components/Palette";
@@ -71,7 +72,7 @@ function formatTimestamp(seconds) {
 // ReplayBar — transport controls shown in log mode
 // ---------------------------------------------------------------------------
 
-function ReplayBar({ replayInfo, replayCurrentIndex, isRunning, onPlayPause, onSeek, onStepForward, onStepBackward }) {
+function ReplayBar({ replayInfo, replayCurrentIndex, isRunning, onPlayPause, onSeek, onStepForward, onStepBackward, onShowFullHistory }) {
     const total = replayInfo?.messages?.length ?? 0;
     const currentTs = replayInfo?.messages?.[replayCurrentIndex]?.timestamp ?? 0;
     const totalTs = replayInfo?.messages?.[total - 1]?.timestamp ?? 0;
@@ -158,6 +159,16 @@ function ReplayBar({ replayInfo, replayCurrentIndex, isRunning, onPlayPause, onS
             <span style={{ fontSize: 11, color: "#555", minWidth: 96, textAlign: "right" }}>
                 {replayCurrentIndex} / {total}
             </span>
+
+            {/* Full-file history graph */}
+            <button
+                title="Show full-file history graph"
+                style={{ ...btn(total === 0, false), width: "auto", padding: "0 10px", fontSize: 12 }}
+                disabled={total === 0}
+                onClick={onShowFullHistory}
+            >
+                📈 Full history
+            </button>
         </div>
     );
 }
@@ -206,6 +217,7 @@ function App() {
     const [logFile, setLogFile] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
     const [isClearingAll, setIsClearingAll] = useState(false);
+    const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
     const [replayInfo, setReplayInfo] = useState(null);
     const [, setReplayStatus] = useState({ isPlaying: false, completed: false });
     const [layoutLocked, setLayoutLocked] = useState(false);
@@ -631,6 +643,11 @@ function App() {
             if (window.__gcguiKeyCapture && event.key !== "Escape") return;
 
             if (event.key === "Escape") {
+                if (fullHistoryOpen) {
+                    event.preventDefault();
+                    setFullHistoryOpen(false);
+                    return;
+                }
                 if (propertiesEditor.open) {
                     event.preventDefault();
                     closePropertiesEditor();
@@ -686,6 +703,7 @@ function App() {
         selectedId,
         propertiesEditor.open,
         paletteOpen,
+        fullHistoryOpen,
         contextMenu,
         layoutLocked,
         shapes,
@@ -830,6 +848,7 @@ function App() {
                             onSeek={seekReplay}
                             onStepForward={stepForward}
                             onStepBackward={stepBackward}
+                            onShowFullHistory={() => setFullHistoryOpen(true)}
                         />
                     )}
 
@@ -848,6 +867,16 @@ function App() {
                         setZoom={setZoom}
                         renderShape={shape => renderComponent(shape, { isRunning, dataSource, protocol })}
                     />
+
+                    {/* Full-file history graph — opened from the replay bar */}
+                    {dataSource === "log" && fullHistoryOpen && replayInfo && (
+                        <FullHistoryGraph
+                            messages={replayInfo.messages}
+                            replayCurrentIndex={replayCurrentIndex}
+                            onSeek={seekReplay}
+                            onClose={() => setFullHistoryOpen(false)}
+                        />
+                    )}
 
                     <Palette
                         components={COMPONENTS}

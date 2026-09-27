@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 export const CANDataContext = createContext();
 
-const CAN_MESSAGE_TYPES = {
+export const CAN_MESSAGE_TYPES = {
     // right now these are hard-coded can messages with ids. I have left them here as an example.
     // one day, I hope to create a better parsing
     "0x202c": {
@@ -410,6 +410,19 @@ const decodeFieldValue = (buffer, encoding) => {
 // ---------------------------------------------------------------------------
 // Global state hook
 // ---------------------------------------------------------------------------
+// Decode a single scaled field value from a stored log message
+// ({ canId, dataBytes }). Returns a finite number or null.
+export const decodeCanFieldValue = (message, fieldName) => {
+    if (!message || !fieldName) return null;
+    const config = CAN_MESSAGE_TYPES[message.canId];
+    const encoding = config?.encoding?.[fieldName];
+    if (!encoding || !Array.isArray(message.dataBytes)) return null;
+    const buffer = new Uint8Array(message.dataBytes);
+    const raw = decodeFieldValue(buffer, encoding);
+    if (raw === null || raw === undefined) return null;
+    const value = Math.round(raw * (encoding.scale ?? 1) * 10000) / 10000;
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+};
 const useCANData = () => {
     const [canData, setCANData] = useState({});
     const [lastUpdate, setLastUpdate] = useState(null);
