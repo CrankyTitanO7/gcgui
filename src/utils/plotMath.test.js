@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { computeBounds, formatTick, scalePoints } from "./plotMath";
+import {
+    addFitPoint,
+    computeBounds,
+    createFitStats,
+    fitFromStats,
+    formatFitEquation,
+    formatFitR,
+    formatTick,
+    linearFit,
+    scalePoints,
+} from "./plotMath";
 
 describe("computeBounds", () => {
     it("pads the data range by 10% on each side", () => {
@@ -58,5 +68,68 @@ describe("formatTick", () => {
     it("handles non-finite input", () => {
         expect(formatTick(NaN)).toBe("—");
         expect(formatTick(Infinity)).toBe("—");
+    });
+});
+
+describe("linearFit", () => {
+    it("recovers an exact line with r = 1", () => {
+        const fit = linearFit([1, 3, 5, 7, 9]); // y = 2x + 1
+        expect(fit.n).toBe(5);
+        expect(fit.slope).toBeCloseTo(2, 9);
+        expect(fit.intercept).toBeCloseTo(1, 9);
+        expect(fit.r).toBeCloseTo(1, 9);
+    });
+
+    it("recovers a negative slope with r = -1", () => {
+        const fit = linearFit([10, 7, 4, 1]); // y = -3x + 10
+        expect(fit.slope).toBeCloseTo(-3, 9);
+        expect(fit.intercept).toBeCloseTo(10, 9);
+        expect(fit.r).toBeCloseTo(-1, 9);
+    });
+
+    it("returns slope 0 and null r for flat data", () => {
+        const fit = linearFit([5, 5, 5, 5]);
+        expect(fit.slope).toBeCloseTo(0, 9);
+        expect(fit.intercept).toBeCloseTo(5, 9);
+        expect(fit.r).toBeNull();
+    });
+
+    it("returns null with fewer than 2 points", () => {
+        expect(linearFit([])).toBeNull();
+        expect(linearFit([4])).toBeNull();
+        expect(linearFit([NaN])).toBeNull();
+        expect(linearFit(null)).toBeNull();
+    });
+
+    it("skips non-finite values", () => {
+        const fit = linearFit([1, NaN, 3, Infinity, 5]);
+        expect(fit.n).toBe(3);
+        expect(fit.slope).toBeCloseTo(2, 9);
+    });
+
+    it("matches incremental stats accumulation", () => {
+        const values = [2.5, 3.1, 4.7, 4.9, 7.2];
+        const batch = linearFit(values);
+        const stats = createFitStats();
+        values.forEach(v => addFitPoint(stats, v));
+        expect(fitFromStats(stats)).toEqual(batch);
+    });
+});
+
+describe("formatFitEquation / formatFitR", () => {
+    it("formats positive and negative intercepts", () => {
+        expect(formatFitEquation({ slope: 2, intercept: 1 })).toBe("y = 2x + 1");
+        expect(formatFitEquation({ slope: -0.5, intercept: -3.25 })).toBe("y = -0.5x - 3.25");
+    });
+
+    it("handles bad fits", () => {
+        expect(formatFitEquation(null)).toBe("—");
+        expect(formatFitR(null)).toBe("r = —");
+        expect(formatFitR({ r: null })).toBe("r = —");
+    });
+
+    it("formats r to two decimals", () => {
+        expect(formatFitR({ r: 0.98234 })).toBe("r = 0.98");
+        expect(formatFitR({ r: -1 })).toBe("r = -1.00");
     });
 });

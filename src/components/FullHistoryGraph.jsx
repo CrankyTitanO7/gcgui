@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "../App.css";
 import { downsampleSeries, getHistoryFieldNames, getHistorySeries } from "../utils/logHistory";
-import { computeBounds, formatTick } from "../utils/plotMath";
+import { computeBounds, formatFitEquation, formatFitR, formatTick, linearFit } from "../utils/plotMath";
 import { colorForSeriesIndex } from "../utils/seriesColors";
 import { getCsvDisplayName } from "../utils/csvAliases";
 
@@ -16,6 +16,7 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
     const [selectedField, setSelectedField] = useState(null);
     const [multiEnabled, setMultiEnabled] = useState(false);
     const [checkedFields, setCheckedFields] = useState(null);
+    const [showFit, setShowFit] = useState(true);
     const displayName = field => getCsvDisplayName(field, csvAliases);
 
     const fieldNames = useMemo(() => getHistoryFieldNames(messages), [messages]);
@@ -38,7 +39,25 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
     );
 
     const allValues = useMemo(() => seriesByField.flatMap(s => s.series.map(p => p.value)), [seriesByField]);
-    const bounds = useMemo(() => computeBounds(allValues), [allValues]);
+    // Best fit spans the recording (first to last sample of each series).
+    const fitsByField = useMemo(() => {
+        const out = {};
+        for (const { field, series } of seriesByField) {
+            out[field] = linearFit(series.map(p => p.value));
+        }
+        return out;
+    }, [seriesByField]);
+    const fitEndpointValues = useMemo(() => {
+        if (!showFit) return [];
+        const vals = [];
+        for (const { field } of seriesByField) {
+            const f = fitsByField[field];
+            if (!f) continue;
+            vals.push(f.intercept, f.slope * (f.n - 1) + f.intercept);
+        }
+        return vals;
+    }, [seriesByField, fitsByField, showFit]);
+    const bounds = useMemo(() => computeBounds([...allValues, ...fitEndpointValues]), [allValues, fitEndpointValues]);
 
     const total = messages.length;
 
@@ -166,6 +185,14 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
                     )}
                     <button
                         type="button"
+                        className={`line-widget-multi-toggle${showFit ? " active" : ""}`}
+                        onClick={() => setShowFit(v => !v)}
+                        title={showFit ? "Hide best-fit lines" : "Show best-fit lines"}
+                    >
+                        {showFit ? "Fit ✓" : "Fit"}
+                    </button>
+                    <button
+                        type="button"
                         className={`line-widget-multi-toggle${multiEnabled ? " active" : ""}`}
                         onClick={toggleMulti}
                         title={multiEnabled ? "Back to single-line plotting" : "Plot multiple fields at once"}
@@ -174,6 +201,27 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
                     </button>
                     <span className="history-hint">Click the graph to seek replay</span>
                 </div>
+
+                {showFit && activeFields.length > 0 && (
+                    <div className="history-fit-bar">
+                        {activeFields.map((field, i) => {
+                            const f = fitsByField[field];
+                            return (
+                                <span key={field} className="history-fit-row" title="Best fit over this recording">
+                                    <span className="multi-dot" style={{ background: colorForSeriesIndex(i) }} />
+                                    <span className="history-fit-field">{displayName(field)}</span>
+                                    {f ? (
+                                        <span className="history-fit-eq">
+                                            {formatFitEquation(f)} · {formatFitR(f)}
+                                        </span>
+                                    ) : (
+                                        <span className="history-fit-empty">need ≥2 pts</span>
+                                    )}
+                                </span>
+                            );
+                        })}
+                    </div>
+                )}
 
                 <div className="history-canvas">
                     {totalSamples === 0 || !bounds ? (
@@ -220,6 +268,30 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
                                     />
                                 );
                             })}
+
+                            {/* Best-fit lines: span the recording (first to last sample) */}
+                            {showFit &&
+                                seriesByField.map(({ field, color, series }) => {
+                                    const f = fitsByField[field];
+                                    if (!f || !bounds || series.length === 0) return null;
+                                    const x0 = xForIndex(series[0].index);
+                                    const x1 = xForIndex(series[series.length - 1].index);
+                                    const y0 = yForValue(f.intercept);
+                                    const y1 = yForValue(f.slope * (f.n - 1) + f.intercept);
+                                    return (
+                                        <path
+                                            key={`fit-${field}`}
+                                            d={`M ${x0.toFixed(1)} ${y0.toFixed(1)} L ${x1.toFixed(1)} ${y1.toFixed(1)}`}
+                                            fill="none"
+                                            stroke={color}
+                                            strokeWidth={1.5}
+                                            strokeDasharray="6 4"
+                                            opacity={0.9}
+                                            strokeLinecap="round"
+                                            vectorEffect="non-scaling-stroke"
+                                        />
+                                    );
+                                })}
 
                             {/* Replay playhead */}
                             {total > 0 && (

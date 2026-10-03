@@ -182,7 +182,17 @@ function renderComponent(shape, runtimeState = {}) {
         case "number":
             return <NumberWidget shape={shape} mode={mode} csvAliases={csvAliases} onCsvAliasChange={onCsvAliasChange} />;
         case "line-plot":
-            return <LinePlotWidget shape={shape} mode={mode} csvAliases={csvAliases} onCsvAliasChange={onCsvAliasChange} />;
+            return (
+                <LinePlotWidget
+                    shape={shape}
+                    mode={mode}
+                    csvAliases={csvAliases}
+                    onCsvAliasChange={onCsvAliasChange}
+                    isRecording={runtimeState.isRecording ?? false}
+                    recordingSession={runtimeState.recordingSession ?? 0}
+                    dataSource={runtimeState.dataSource}
+                />
+            );
         case "raw-serial":
             return <RawSerialWidget isRunning={runtimeState.isRunning} dataSource={runtimeState.dataSource} />;
         case "can-data":
@@ -237,6 +247,21 @@ function App() {
     const [liveElapsedSec, setLiveElapsedSec] = useState(0);
     const liveStartRef = useRef(null);
     const liveTimerRef = useRef(null);
+    // Recording session: increments each time a new live file begins
+    // (Record pressed, Clear All rotation, protocol rotation). Line widgets
+    // scope their best-fit lines to one session and clear between sessions.
+    const [recordingSession, setRecordingSession] = useState(0);
+    const prevRecordingRef = useRef(false);
+    const prevProtocolRef = useRef(protocol);
+    const isRecording = dataSource === "live" && isRunning && Boolean(usbPort?.trim());
+
+    useEffect(() => {
+        const started = isRecording && !prevRecordingRef.current;
+        const rotated = isRecording && prevRecordingRef.current && protocol !== prevProtocolRef.current;
+        if (started || rotated) setRecordingSession(s => s + 1);
+        prevRecordingRef.current = isRecording;
+        prevProtocolRef.current = protocol;
+    }, [isRecording, protocol]);
     const [isClearingAll, setIsClearingAll] = useState(false);
     const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
     const [replayInfo, setReplayInfo] = useState(null);
@@ -347,9 +372,10 @@ function App() {
                 } catch (err) {
                     console.error("Failed to start live recording on clear all:", err);
                 }
-                // New file = new delta-time session.
+                // New file = new delta-time session + new best-fit session.
                 liveStartRef.current = Date.now();
                 setLiveElapsedSec(0);
+                setRecordingSession(s => s + 1);
             }
         } finally {
             setIsClearingAll(false);
@@ -950,7 +976,17 @@ function App() {
                         gridSize={GRID_SIZE}
                         zoom={zoom}
                         setZoom={setZoom}
-                        renderShape={shape => renderComponent(shape, { isRunning, dataSource, protocol, csvAliases, onCsvAliasChange: updateCsvAlias })}
+                        renderShape={shape =>
+                            renderComponent(shape, {
+                                isRunning,
+                                dataSource,
+                                protocol,
+                                csvAliases,
+                                onCsvAliasChange: updateCsvAlias,
+                                isRecording,
+                                recordingSession,
+                            })
+                        }
                     />
 
                     {/* Full-file history graph — opened from the replay bar */}

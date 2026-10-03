@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../App.css";
 import { CLEAR_ALL_EVENT } from "../utils/clearAll";
-import { computeBounds, formatTick, scalePoints } from "../utils/plotMath";
+import {
+    addFitPoint,
+    computeBounds,
+    createFitStats,
+    fitFromStats,
+    formatFitEquation,
+    formatFitR,
+    formatTick,
+    scalePoints,
+} from "../utils/plotMath";
 import { colorForSeriesIndex } from "../utils/seriesColors";
 import { useCANDataHook } from "./parsers/canproc";
 import { useCSVDataHook } from "./parsers/csvproc";
@@ -21,7 +30,15 @@ const PAD = { left: 40, right: 10, top: 10, bottom: 16 };
 const Y_TICKS = 4;
 const X_LINES = 6;
 
-export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvAliasChange }) {
+export default function LinePlotWidget({
+    shape,
+    mode = "can",
+    csvAliases,
+    onCsvAliasChange,
+    isRecording = false,
+    recordingSession = 0,
+    dataSource = "live",
+}) {
     const { canData } = useCANDataHook();
     const { csvData } = useCSVDataHook();
     const isCSV = mode === "csv";
@@ -32,6 +49,17 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
     const [multiEnabled, setMultiEnabled] = useState(false);
     const [checkedFields, setCheckedFields] = useState(null);
     const [dataByField, setDataByField] = useState({});
+    // Best-fit lines are scoped to one recording session: accumulation
+    // starts when recording starts (even in live mode, where listening never
+    // stops), freezes when recording stops, and clears between sessions.
+    const [showFit, setShowFit] = useState(true);
+    const fitStatsRef = useRef({});
+
+    // Reset between sessions/modes — declared before the data effect so a
+    // session change wipes stale stats before new points can land in them.
+    useEffect(() => {
+        fitStatsRef.current = {};
+    }, [recordingSession, dataSource, isCSV]);
 
     const csvMessage = isCSV ? csvData.csv : undefined;
     const csvFieldNames = Object.keys(csvMessage?.fields ?? {});
@@ -101,6 +129,17 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
             if (currentValue !== null) next[field] = currentValue;
         }
         if (Object.keys(next).length > 0) {
+            if (isRecording) {
+                const statsMap = fitStatsRef.current;
+                for (const [field, value] of Object.entries(next)) {
+                    let st = statsMap[field];
+                    if (!st) {
+                        st = createFitStats();
+                        statsMap[field] = st;
+                    }
+                    addFitPoint(st, value);
+                }
+            }
             setDataByField(prevData => {
                 const out = { ...prevData };
                 for (const [field, value] of Object.entries(next)) {
@@ -109,10 +148,13 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
                 return out;
             });
         }
-    }, [canData, csvMessage, fieldsKey, activeFields, isCSV]);
+    }, [canData, csvMessage, fieldsKey, activeFields, isCSV, isRecording]);
 
     useEffect(() => {
-        const handleClearAll = () => setDataByField({});
+        const handleClearAll = () => {
+            setDataByField({});
+            fitStatsRef.current = {};
+        };
         window.addEventListener(CLEAR_ALL_EVENT, handleClearAll);
         return () => window.removeEventListener(CLEAR_ALL_EVENT, handleClearAll);
     }, []);
@@ -131,8 +173,32 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
 
     const innerW = PLOT_W - PAD.left - PAD.right;
     const innerH = PLOT_H - PAD.top - PAD.bottom;
+
+    // Solved fits per visible series (O(1) each — stats accumulate online).
+    const fitsByField = useMemo(() => {
+        const out = {};
+        for (const field of activeFields) {
+            out[field] = fitFromStats(fitStatsRef.current[field]);
+        }
+        return out;
+        // dataByField ticks whenever stats grow; session/mode reset the stats.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataByField, fieldsKey, recordingSession, dataSource, isCSV]);
+
     const allValues = activeFields.flatMap(field => dataByField[field] ?? []);
-    const bounds = computeBounds(allValues);
+    // Keep the fit segment inside the frame: pad bounds with its endpoints.
+    const fitEndpointValues = activeFields.flatMap(field => {
+        if (!showFit) return [];
+        const f = fitsByField[field];
+        if (!f) return [];
+        return [f.intercept, f.slope * (f.n - 1) + f.intercept];
+    });
+    const bounds = computeBounds([...allValues, ...fitEndpointValues]);
+
+    const yToPixel = y => {
+        if (!bounds || !(bounds.max > bounds.min)) return innerH / 2;
+        return innerH - ((y - bounds.min) / (bounds.max - bounds.min)) * innerH;
+    };
 
     const seriesList = activeFields.map((field, i) => {
         const data = dataByField[field] ?? [];
@@ -145,6 +211,11 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
             points.length > 0
                 ? `${linePath} L ${innerW.toFixed(1)} ${innerH.toFixed(1)} L 0 ${innerH.toFixed(1)} Z`
                 : "";
+        const fit = fitsByField[field] ?? null;
+        const fitPath =
+            fit && bounds
+                ? `M 0 ${yToPixel(fit.intercept).toFixed(1)} L ${innerW.toFixed(1)} ${yToPixel(fit.slope * (fit.n - 1) + fit.intercept).toFixed(1)}`
+                : "";
         return {
             field,
             color: colorForSeriesIndex(i),
@@ -154,6 +225,8 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
             areaPath,
             lastPoint: points.length > 0 ? points[points.length - 1] : null,
             currentValue: data.length > 0 ? data[data.length - 1] : null,
+            fit,
+            fitPath,
         };
     });
 
@@ -163,7 +236,10 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
             : [];
 
     const totalPoints = seriesList.reduce((n, s) => n + s.data.length, 0);
-    const handleClear = () => setDataByField({});
+    const handleClear = () => {
+        setDataByField({});
+        fitStatsRef.current = {};
+    };
     const single = seriesList[0];
 
     return (
@@ -202,6 +278,26 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
                             {formatTick(bounds.min)} – {formatTick(bounds.max)}
                         </span>
                     )}
+                </div>
+            )}
+
+            {showFit && (
+                <div className="line-widget-fit">
+                    {seriesList.map(s => (
+                        <span key={s.field} className="line-widget-fit-row" title={isRecording ? "Best fit over this recording" : "Best fit over the last recording (frozen)"}>
+                            <span className="multi-dot" style={{ background: s.color }} />
+                            <span className="line-widget-fit-field">{displayName(s.field)}</span>
+                            {s.fit ? (
+                                <span className="line-widget-fit-eq">
+                                    {formatFitEquation(s.fit)} · {formatFitR(s.fit)}
+                                </span>
+                            ) : (
+                                <span className="line-widget-fit-empty">
+                                    {isRecording ? "collecting…" : ": no recording data"}
+                                </span>
+                            )}
+                        </span>
+                    ))}
                 </div>
             )}
 
@@ -269,6 +365,22 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
                                     />
                                 ) : null,
                             )}
+                            {showFit &&
+                                seriesList.map(s =>
+                                    s.fitPath ? (
+                                        <path
+                                            key={`fit-${s.field}`}
+                                            d={s.fitPath}
+                                            fill="none"
+                                            stroke={s.color}
+                                            strokeWidth={1.5}
+                                            strokeDasharray="5 4"
+                                            opacity={0.9}
+                                            strokeLinecap="round"
+                                            vectorEffect="non-scaling-stroke"
+                                        />
+                                    ) : null,
+                                )}
                             {seriesList.map(s =>
                                 s.lastPoint ? (
                                     <circle key={s.field} cx={s.lastPoint.x} cy={s.lastPoint.y} r={3} fill={s.color} stroke="#0c2213" strokeWidth={1.5} />
@@ -291,6 +403,15 @@ export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvA
                         {isCSV && (
                             <CsvAliasEditor fields={selectOptions} aliases={aliases} onAliasChange={onCsvAliasChange} />
                         )}
+                        <button
+                            type="button"
+                            className={`line-widget-multi-toggle${showFit ? " active" : ""}`}
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={() => setShowFit(v => !v)}
+                            title={showFit ? "Hide best-fit lines" : "Show best-fit lines"}
+                        >
+                            {showFit ? "Fit ✓" : "Fit"}
+                        </button>
                         <button
                             type="button"
                             className={`line-widget-multi-toggle${multiEnabled ? " active" : ""}`}
