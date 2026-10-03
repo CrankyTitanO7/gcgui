@@ -1248,6 +1248,25 @@
   box-shadow: 0 0 0 2px rgba(113, 162, 255, 0.2);
 }
 
+.properties-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d7dbff;
+}
+
+.properties-check-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  accent-color: #3d78eb;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .properties-actions {
   margin-top: 8px;
   display: flex;

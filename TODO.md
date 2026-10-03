@@ -9,7 +9,7 @@
 <!-- - full history graphs
 - multi-data line graphs -->
 <!-- - fit lines -->
-- open/close buttons
-    - show open status vs closed status
+<!-- - open/close buttons
+    - show open status vs closed status -->
 <!-- - show delta time -->
 <!-- - datapoint naming (upstream vs downstream) -->

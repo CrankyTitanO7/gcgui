@@ -13,6 +13,7 @@ import RadioWidget from "./components/RadioWidget";
 import RawSerialWidget from "./components/RawSerialWidget";
 import SendWidget from "./components/SendWidget";
 import KeySendWidget from "./components/KeySendWidget";
+import KeyButtonWidget from "./components/KeyButtonWidget";
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from "./utils/config";
 import { emitClearAll } from "./utils/clearAll";
 import { parseCSVLog } from "./utils/csvLogParser";
@@ -36,6 +37,16 @@ const COMPONENTS = [
     { type: "radio", label: "Radio", w: 6, h: 4, defaultName: "Radio Widget", defaultField: "" },
     { type: "send", label: "Send", w: 8, h: 5, defaultName: "Send Widget", defaultField: "" },
     { type: "key-send", label: "Key Send", w: 6, h: 4, defaultName: "Key Send Widget", defaultField: "" },
+    {
+        type: "key-button",
+        label: "Key Button",
+        w: 6,
+        h: 4,
+        defaultName: "Key Button",
+        defaultField: "",
+        defaultSendMessage: "A",
+        defaultToggleEnabled: true,
+    },
 ];
 
 const SUPPORTED_TYPES = new Set(COMPONENTS.map(c => c.type));
@@ -54,11 +65,18 @@ function isTypingTarget(target) {
 function applyWidgetDefaults(shape) {
     const defaults = COMPONENTS.find(c => c.type === shape.type);
     if (!defaults) return shape;
-    return {
+    const out = {
         ...shape,
         name: shape.name || defaults.defaultName,
         dataField: shape.dataField || defaults.defaultField,
     };
+    if (defaults.defaultSendMessage !== undefined && (out.sendMessage === undefined || out.sendMessage === null)) {
+        out.sendMessage = defaults.defaultSendMessage;
+    }
+    if (defaults.defaultToggleEnabled !== undefined && (out.toggleEnabled === undefined || out.toggleEnabled === null)) {
+        out.toggleEnabled = defaults.defaultToggleEnabled;
+    }
+    return out;
 }
 
 function formatTimestamp(seconds) {
@@ -205,6 +223,8 @@ function renderComponent(shape, runtimeState = {}) {
             return <SendWidget />;
         case "key-send":
             return <KeySendWidget />;
+        case "key-button":
+            return <KeyButtonWidget shape={shape} />;
         default:
             return <div className="fallback-block">Unsupported widget</div>;
     }
@@ -273,6 +293,8 @@ function App() {
         shapeId: null,
         name: "",
         dataField: "",
+        sendMessage: "",
+        toggleEnabled: true,
     });
 
     // replayIndexRef    — mutable position the loop reads/writes (avoids stale closures)
@@ -823,6 +845,8 @@ function App() {
                 height: component.h * GRID_SIZE,
                 name: component.defaultName,
                 dataField: component.defaultField,
+                sendMessage: component.defaultSendMessage ?? "",
+                toggleEnabled: component.defaultToggleEnabled ?? true,
             },
         ]);
         setSelectedId(id);
@@ -838,7 +862,9 @@ function App() {
         setShapes(arr => arr.filter(s => s.id !== id));
         setContextMenu(menu => (menu?.shapeId === id ? null : menu));
         setPropertiesEditor(curr =>
-            curr.shapeId === id ? { open: false, shapeId: null, name: "", dataField: "" } : curr,
+            curr.shapeId === id
+                ? { open: false, shapeId: null, name: "", dataField: "", sendMessage: "", toggleEnabled: true }
+                : curr,
         );
         setSelectedId(curr => (curr === id ? null : curr));
     }
@@ -846,19 +872,35 @@ function App() {
     function openPropertiesEditor(shapeId) {
         const shape = shapes.find(s => s.id === shapeId);
         if (!shape || layoutLocked) return;
-        setPropertiesEditor({ open: true, shapeId, name: shape.name || "", dataField: shape.dataField || "" });
+        setPropertiesEditor({
+            open: true,
+            shapeId,
+            name: shape.name || "",
+            dataField: shape.dataField || "",
+            sendMessage: typeof shape.sendMessage === "string" ? shape.sendMessage : "",
+            toggleEnabled: shape.toggleEnabled !== false,
+        });
     }
 
     function closePropertiesEditor() {
-        setPropertiesEditor({ open: false, shapeId: null, name: "", dataField: "" });
+        setPropertiesEditor({ open: false, shapeId: null, name: "", dataField: "", sendMessage: "", toggleEnabled: true });
     }
 
     function applyPropertiesEditorChanges() {
         if (layoutLocked || !propertiesEditor.shapeId) return;
-        onUpdateShape(propertiesEditor.shapeId, {
-            name: propertiesEditor.name.trim() || "Widget",
-            dataField: propertiesEditor.dataField.trim() || "speed",
-        });
+        const editingShape = shapes.find(s => s.id === propertiesEditor.shapeId);
+        if (editingShape?.type === "key-button") {
+            onUpdateShape(propertiesEditor.shapeId, {
+                name: propertiesEditor.name.trim() || "Widget",
+                sendMessage: propertiesEditor.sendMessage ?? "",
+                toggleEnabled: propertiesEditor.toggleEnabled !== false,
+            });
+        } else {
+            onUpdateShape(propertiesEditor.shapeId, {
+                name: propertiesEditor.name.trim() || "Widget",
+                dataField: propertiesEditor.dataField.trim() || "speed",
+            });
+        }
         closePropertiesEditor();
     }
 
@@ -915,6 +957,9 @@ function App() {
     const replayLastTs = replayMsgs.length > 0 ? (replayMsgs[replayMsgs.length - 1]?.timestamp ?? replayFirstTs) : 0;
     const replayDeltaSec = Math.max(0, replayCurrentTs - replayFirstTs);
     const replayTotalSec = Math.max(0, replayLastTs - replayFirstTs);
+
+    const editingShape = shapes.find(s => s.id === propertiesEditor.shapeId);
+    const editingIsKeyButton = editingShape?.type === "key-button";
 
     // ---------------------------------------------------------------------------
     // Render
@@ -1062,16 +1107,44 @@ function App() {
                                         placeholder="Widget name"
                                         onChange={e => setPropertiesEditor(curr => ({ ...curr, name: e.target.value }))}
                                     />
-                                    <label htmlFor="widget-data-field">Data Field</label>
-                                    <input
-                                        id="widget-data-field"
-                                        type="text"
-                                        value={propertiesEditor.dataField}
-                                        placeholder="Data field"
-                                        onChange={e =>
-                                            setPropertiesEditor(curr => ({ ...curr, dataField: e.target.value }))
-                                        }
-                                    />
+                                    {editingIsKeyButton ? (
+                                        <>
+                                            <label htmlFor="widget-send-message">Send Message</label>
+                                            <input
+                                                id="widget-send-message"
+                                                type="text"
+                                                value={propertiesEditor.sendMessage}
+                                                placeholder="Message sent + Enter on press"
+                                                onChange={e =>
+                                                    setPropertiesEditor(curr => ({ ...curr, sendMessage: e.target.value }))
+                                                }
+                                            />
+                                            <label className="properties-check-row" htmlFor="widget-toggle-enabled">
+                                                <input
+                                                    id="widget-toggle-enabled"
+                                                    type="checkbox"
+                                                    checked={propertiesEditor.toggleEnabled !== false}
+                                                    onChange={e =>
+                                                        setPropertiesEditor(curr => ({ ...curr, toggleEnabled: e.target.checked }))
+                                                    }
+                                                />
+                                                <span>Toggle (latch ON/OFF on press)</span>
+                                            </label>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <label htmlFor="widget-data-field">Data Field</label>
+                                            <input
+                                                id="widget-data-field"
+                                                type="text"
+                                                value={propertiesEditor.dataField}
+                                                placeholder="Data field"
+                                                onChange={e =>
+                                                    setPropertiesEditor(curr => ({ ...curr, dataField: e.target.value }))
+                                                }
+                                            />
+                                        </>
+                                    )}
                                     <div className="properties-actions">
                                         <button type="button" className="secondary" onClick={closePropertiesEditor}>
                                             Cancel

@@ -80,7 +80,9 @@ export function createConfig(shapes, panX, panY, zoom) {
       width: shape.width,
       height: shape.height,
       name: shape.name,
-      dataField: shape.dataField
+      dataField: shape.dataField,
+      sendMessage: shape.sendMessage,
+      toggleEnabled: shape.toggleEnabled
     })),
     view: {
       panX,
@@ -114,7 +116,9 @@ export function validateConfig(config) {
   const shapes = rawShapes.map((shape) => ({
     ...shape,
     name: typeof shape?.name === 'string' ? shape.name : '',
-    dataField: typeof shape?.dataField === 'string' ? shape.dataField : ''
+    dataField: typeof shape?.dataField === 'string' ? shape.dataField : '',
+    sendMessage: typeof shape?.sendMessage === 'string' ? shape.sendMessage : '',
+    toggleEnabled: typeof shape?.toggleEnabled === 'boolean' ? shape.toggleEnabled : true
   }))
   
   // Validate view settings

@@ -180,3 +180,68 @@
 .keysend-last strong {
   color: #e8f5e9;
 }
+
+/* Key-button widget: a toggle-look button that sends once per press */
+.keybutton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 16px 12px;
+  border-radius: 10px;
+  border: 1px solid #555;
+  background: #2a2a2a;
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.keybutton:hover:not(:disabled) {
+  border-color: #888;
+}
+
+.keybutton:active:not(:disabled) {
+  filter: brightness(1.3);
+}
+
+.keybutton.momentary {
+  background: #2a2a2a;
+  border-color: #555;
+}
+
+.keybutton:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.keybutton.on {
+  background: #1b3a1b;
+  border-color: #4caf50;
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.35);
+}
+
+.keybutton-state {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.keybutton-state.on {
+  color: #4caf50;
+}
+
+.keybutton-state.off {
+  color: #888;
+}
+
+.keybutton-label {
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.keybutton-message {
+  font-size: 11px;
+  color: #aaa;
+}

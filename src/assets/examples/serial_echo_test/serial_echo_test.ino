@@ -18,7 +18,7 @@ void loop() {
   static String line = "";
 
   while (Serial.available() > 0) {
-    char c = (char)Serial.read();
+    String c = (String)Serial.read();
     if (c == '\n') {
       Serial.print("ECHO: ");
       Serial.println(line);
