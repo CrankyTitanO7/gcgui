@@ -16,6 +16,7 @@ import KeySendWidget from "./components/KeySendWidget";
 import { createConfig, getDefaultConfig, loadConfig, saveConfig, validateConfig } from "./utils/config";
 import { emitClearAll } from "./utils/clearAll";
 import { parseCSVLog } from "./utils/csvLogParser";
+import { loadCsvAliases, saveCsvAliases } from "./utils/csvAliases";
 
 const GRID_SIZE = 28;
 
@@ -175,11 +176,13 @@ function ReplayBar({ replayInfo, replayCurrentIndex, isRunning, onPlayPause, onS
 
 function renderComponent(shape, runtimeState = {}) {
     const mode = runtimeState.protocol === "csv" ? "csv" : "can";
+    const csvAliases = runtimeState.csvAliases ?? {};
+    const onCsvAliasChange = runtimeState.onCsvAliasChange;
     switch (shape.type) {
         case "number":
-            return <NumberWidget shape={shape} mode={mode} />;
+            return <NumberWidget shape={shape} mode={mode} csvAliases={csvAliases} onCsvAliasChange={onCsvAliasChange} />;
         case "line-plot":
-            return <LinePlotWidget shape={shape} mode={mode} />;
+            return <LinePlotWidget shape={shape} mode={mode} csvAliases={csvAliases} onCsvAliasChange={onCsvAliasChange} />;
         case "raw-serial":
             return <RawSerialWidget isRunning={runtimeState.isRunning} dataSource={runtimeState.dataSource} />;
         case "can-data":
@@ -215,6 +218,16 @@ function App() {
     const [availablePorts, setAvailablePorts] = useState([]);
     const [isScanning, setIsScanning] = useState(false);
     const [logFile, setLogFile] = useState(null);
+    // CSV datapoint display names (canonical keys stay "datapoint 1/2").
+    const [csvAliases, setCsvAliases] = useState(() => loadCsvAliases());
+
+    function updateCsvAlias(key, value) {
+        setCsvAliases(prev => {
+            const next = { ...prev, [key]: typeof value === "string" ? value.slice(0, 40) : "" };
+            saveCsvAliases(next);
+            return next;
+        });
+    }
     // isRunning = recording in live mode, playing in log mode.
     // Listening is always on: the serial port connects as soon as usbPort
     // is set and parsers process every "serial-data" event regardless.
@@ -937,7 +950,7 @@ function App() {
                         gridSize={GRID_SIZE}
                         zoom={zoom}
                         setZoom={setZoom}
-                        renderShape={shape => renderComponent(shape, { isRunning, dataSource, protocol })}
+                        renderShape={shape => renderComponent(shape, { isRunning, dataSource, protocol, csvAliases, onCsvAliasChange: updateCsvAlias })}
                     />
 
                     {/* Full-file history graph — opened from the replay bar */}
@@ -945,6 +958,7 @@ function App() {
                         <FullHistoryGraph
                             messages={replayInfo.messages}
                             replayCurrentIndex={replayCurrentIndex}
+                            csvAliases={csvAliases}
                             onSeek={seekReplay}
                             onClose={() => setFullHistoryOpen(false)}
                         />

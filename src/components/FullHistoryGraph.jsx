@@ -3,16 +3,20 @@ import "../App.css";
 import { downsampleSeries, getHistoryFieldNames, getHistorySeries } from "../utils/logHistory";
 import { computeBounds, formatTick } from "../utils/plotMath";
 import { colorForSeriesIndex } from "../utils/seriesColors";
+import { getCsvDisplayName } from "../utils/csvAliases";
 
 const PLOT_W = 900;
 const PLOT_H = 380;
 const PAD = { left: 56, right: 16, top: 14, bottom: 28 };
 const Y_TICKS = 5;
 
-export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0, onSeek, onClose }) {
+const DEFAULT_ALIASES = {};
+
+export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0, onSeek, onClose, csvAliases = DEFAULT_ALIASES }) {
     const [selectedField, setSelectedField] = useState(null);
     const [multiEnabled, setMultiEnabled] = useState(false);
     const [checkedFields, setCheckedFields] = useState(null);
+    const displayName = field => getCsvDisplayName(field, csvAliases);
 
     const fieldNames = useMemo(() => getHistoryFieldNames(messages), [messages]);
     const singleField = fieldNames.includes(selectedField) ? selectedField : (fieldNames[0] ?? "");
@@ -116,7 +120,7 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
                         <h3>Full File History</h3>
                         <div className="history-sub">
                             {total} messages
-                            {activeFields.length === 1 && totalSamples > 0 && ` · ${totalSamples} samples of ${activeFields[0]}`}
+                            {activeFields.length === 1 && totalSamples > 0 && ` · ${totalSamples} samples of ${displayName(activeFields[0])}`}
                             {activeFields.length > 1 && ` · ${activeFields.length} fields`}
                         </div>
                     </div>
@@ -137,7 +141,7 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
                             >
                                 {fieldNames.map(field => (
                                     <option key={field} value={field}>
-                                        {field}
+                                        {displayName(field)}
                                     </option>
                                 ))}
                             </select>
@@ -151,7 +155,7 @@ export default function FullHistoryGraph({ messages = [], replayCurrentIndex = 0
                                     <label key={field} className="multi-option">
                                         <input type="checkbox" checked={checked} onChange={() => toggleField(field)} />
                                         <span className="multi-dot" style={{ background: checked ? colorForSeriesIndex(idx) : "#555" }} />
-                                        <span className="multi-option-label">{field}</span>
+                                        <span className="multi-option-label">{displayName(field)}</span>
                                         <span className="multi-option-value">
                                             {playheadValues[field] ?? "—"}
                                         </span>

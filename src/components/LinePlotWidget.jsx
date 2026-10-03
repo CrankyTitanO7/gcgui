@@ -5,6 +5,8 @@ import { computeBounds, formatTick, scalePoints } from "../utils/plotMath";
 import { colorForSeriesIndex } from "../utils/seriesColors";
 import { useCANDataHook } from "./parsers/canproc";
 import { useCSVDataHook } from "./parsers/csvproc";
+import { getCsvDisplayName, resolveCsvCanonical } from "../utils/csvAliases";
+import CsvAliasEditor from "./CsvAliasEditor";
 
 // CAN and CSV fields are { value, unit, raw } objects; extract the display value.
 const fieldValue = field => field?.value ?? field?.raw ?? null;
@@ -19,11 +21,14 @@ const PAD = { left: 40, right: 10, top: 10, bottom: 16 };
 const Y_TICKS = 4;
 const X_LINES = 6;
 
-export default function LinePlotWidget({ shape, mode = "can" }) {
+export default function LinePlotWidget({ shape, mode = "can", csvAliases, onCsvAliasChange }) {
     const { canData } = useCANDataHook();
     const { csvData } = useCSVDataHook();
     const isCSV = mode === "csv";
+    const aliases = csvAliases ?? {};
+    const displayName = field => (isCSV ? getCsvDisplayName(field, aliases) : field);
     const [selectedField, setSelectedField] = useState(shape.dataField || (isCSV ? "datapoint 1" : "RPM"));
+    const selectedCanonical = isCSV ? resolveCsvCanonical(selectedField, aliases) : selectedField;
     const [multiEnabled, setMultiEnabled] = useState(false);
     const [checkedFields, setCheckedFields] = useState(null);
     const [dataByField, setDataByField] = useState({});
@@ -49,9 +54,9 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
     const visibleFields = allFields.filter(isPlottableField);
     // Remap legacy "time" selections (or fields with no data yet) to the
     // first available plottable field.
-    const effectiveField = visibleFields.includes(selectedField)
-        ? selectedField
-        : (visibleFields[0] ?? selectedField);
+    const effectiveField = visibleFields.includes(selectedCanonical)
+        ? selectedCanonical
+        : (visibleFields[0] ?? selectedCanonical);
     const selectOptions = visibleFields.length > 0 ? visibleFields : [effectiveField];
 
     // Active series: single selection, or the checked checkbox set in multi mode.
@@ -182,7 +187,7 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
                     {seriesList.map(s => (
                         <span key={s.field} className="line-widget-legend-item">
                             <span className="multi-dot" style={{ background: s.color }} />
-                            <span className="line-widget-legend-field">{s.field}</span>
+                            <span className="line-widget-legend-field">{displayName(s.field)}</span>
                             <span className="line-widget-legend-value">{s.currentValue ?? "N/A"}</span>
                         </span>
                     ))}
@@ -191,7 +196,7 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
             ) : (
                 <div className="line-widget-readout">
                     <span className="line-widget-value">{single?.currentValue ?? "N/A"}</span>
-                    <span className="line-widget-field">{effectiveField}</span>
+                    <span className="line-widget-field">{displayName(effectiveField)}</span>
                     {bounds && (
                         <span className="line-widget-range">
                             {formatTick(bounds.min)} – {formatTick(bounds.max)}
@@ -282,15 +287,20 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
                     >
                         Select Field:
                     </label>
-                    <button
-                        type="button"
-                        className={`line-widget-multi-toggle${multiEnabled ? " active" : ""}`}
-                        onMouseDown={e => e.stopPropagation()}
-                        onClick={toggleMulti}
-                        title={multiEnabled ? "Back to single-line plotting" : "Plot multiple fields at once"}
-                    >
-                        {multiEnabled ? "Multi ✓" : "Multi"}
-                    </button>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {isCSV && (
+                            <CsvAliasEditor fields={selectOptions} aliases={aliases} onAliasChange={onCsvAliasChange} />
+                        )}
+                        <button
+                            type="button"
+                            className={`line-widget-multi-toggle${multiEnabled ? " active" : ""}`}
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={toggleMulti}
+                            title={multiEnabled ? "Back to single-line plotting" : "Plot multiple fields at once"}
+                        >
+                            {multiEnabled ? "Multi ✓" : "Multi"}
+                        </button>
+                    </div>
                 </div>
                 {!multiEnabled ? (
                     <select
@@ -309,7 +319,7 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
                     >
                         {selectOptions.map(field => (
                             <option key={field} value={field}>
-                                {field}
+                                {displayName(field)}
                             </option>
                         ))}
                     </select>
@@ -322,7 +332,7 @@ export default function LinePlotWidget({ shape, mode = "can" }) {
                                 <label key={field} className="multi-option">
                                     <input type="checkbox" checked={checked} onChange={() => toggleField(field)} />
                                     <span className="multi-dot" style={{ background: checked ? colorForSeriesIndex(idx) : "#555" }} />
-                                    <span className="multi-option-label">{field}</span>
+                                    <span className="multi-option-label">{displayName(field)}</span>
                                 </label>
                             );
                         })}
