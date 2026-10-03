@@ -174,7 +174,8 @@ export default function ControlBar({
                 </div>
             )}
 
-            {/* Start/Pause Buttons */}
+            {/* Record / Replay transport — in live mode this only toggles file
+            recording; the app is always listening in the background. */}
             <div className="control-group">
                 <button
                     className={`control-button ${isRunning ? "primary" : ""}`}
@@ -186,8 +187,22 @@ export default function ControlBar({
                               ? true
                               : false
                     }
+                    title={
+                        dataSource === "live"
+                            ? isRunning
+                                ? "Stop recording (listening continues)"
+                                : "Start recording (already listening)"
+                            : isRunning
+                              ? "Pause replay"
+                              : "Start replay"
+                    }
+                    style={
+                        dataSource === "live" && isRunning
+                            ? { background: "#c0392b", borderColor: "#c0392b", color: "#fff" }
+                            : undefined
+                    }
                 >
-                    {isRunning ? "⏸ Pause" : "▶ Start"}
+                    {dataSource === "live" ? (isRunning ? "■ Stop" : "● Record") : isRunning ? "⏸ Pause" : "▶ Start"}
                 </button>
                 <button
                     className="control-button"

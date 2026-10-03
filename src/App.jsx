@@ -215,6 +215,9 @@ function App() {
     const [availablePorts, setAvailablePorts] = useState([]);
     const [isScanning, setIsScanning] = useState(false);
     const [logFile, setLogFile] = useState(null);
+    // isRunning = recording in live mode, playing in log mode.
+    // Listening is always on: the serial port connects as soon as usbPort
+    // is set and parsers process every "serial-data" event regardless.
     const [isRunning, setIsRunning] = useState(false);
     const [isClearingAll, setIsClearingAll] = useState(false);
     const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
@@ -401,7 +404,8 @@ function App() {
     }, [usbPort]);
 
     // ---------------------------------------------------------------------------
-    // Live recording
+    // Live recording — independent from listening. The serial port stays
+    // connected and widgets keep updating whether or not we record.
     // ---------------------------------------------------------------------------
 
     useEffect(() => {

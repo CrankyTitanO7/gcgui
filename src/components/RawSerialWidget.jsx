@@ -19,12 +19,10 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
     let cleanupStatus = null;
     let cleanupReplayStatus = null;
 
-    // Listen for serial data - accept both 'live' and 'log' modes
+    // Listen for serial data - always listening, even when not recording.
+    // In live mode the topbar button only controls file recording.
     if (window.electronAPI.onSerialData) {
       cleanupData = window.electronAPI.onSerialData((data) => {
-        if (!isRunning) {
-          return;
-        }
         console.log('Serial data received:', data); // Debug log
         const timestamp = new Date().toLocaleTimeString();
         const newData = { timestamp, data: data.toString() };
@@ -77,7 +75,7 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
       if (cleanupStatus) cleanupStatus();
       if (cleanupReplayStatus) cleanupReplayStatus();
     };
-  }, [isRunning, dataSource]);
+  }, [dataSource]);
 
   const clearData = () => {
     setRawData([]);
@@ -148,9 +146,7 @@ const RawSerialWidget = ({ isRunning = true, dataSource = 'live' }) => {
                 ? (!isRunning ? 'Paused - Click Start to replay' : 'Waiting for replay data...')
                 : !isConnected
                   ? 'No data received yet...'
-                  : !isRunning
-                    ? 'Paused'
-                    : 'Waiting for data...'}
+                  : 'Listening… Waiting for data...'}
             </div>
           ) : (
             rawData.map((item, index) => (

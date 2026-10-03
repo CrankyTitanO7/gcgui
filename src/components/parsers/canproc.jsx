@@ -554,8 +554,10 @@ export const CanProcProvider = ({ children, isRunning = true, dataSource = "live
         let cleanupReplayStatus = null;
 
         if (window.electronAPI.onSerialData) {
+            // Always listening: serial data is processed even when not
+            // recording. The topbar Start/Stop button only controls
+            // live recording to file (and replay play/pause in log mode).
             cleanupData = window.electronAPI.onSerialData(data => {
-                if (!isRunning) return;
                 canData.handleSerialData(data);
             });
         }
