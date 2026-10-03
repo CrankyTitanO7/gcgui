@@ -20,6 +20,9 @@ export default function ControlBar({
     onRefreshPorts,
     onClearAll,
     isClearingAll = false,
+    liveElapsedSec = 0,
+    replayDeltaSec = 0,
+    replayTotalSec = 0,
 }) {
     const fileInputRef = useRef(null);
 
@@ -35,6 +38,24 @@ export default function ControlBar({
     const handleToggleRun = () => {
         setIsRunning(!isRunning);
     };
+
+    const formatDelta = seconds => {
+        if (seconds == null || isNaN(seconds)) return "0:00.000";
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        const ms = Math.round((seconds % 1) * 1000);
+        return `${m}:${String(s).padStart(2, "0")}.${String(ms).padStart(3, "0")}`;
+    };
+
+    const isLive = dataSource === "live";
+    const deltaDisplay = isLive
+        ? `Δ ${formatDelta(liveElapsedSec)}`
+        : `Δ ${formatDelta(replayDeltaSec)} / ${formatDelta(replayTotalSec)}`;
+    const deltaTitle = isLive
+        ? isRunning
+            ? "Recording elapsed time"
+            : "Recording elapsed time (last recording, frozen)"
+        : "Replay position (log-file delta time)";
 
     return (
         <div className="control-bar">
@@ -204,6 +225,25 @@ export default function ControlBar({
                 >
                     {dataSource === "live" ? (isRunning ? "■ Stop" : "● Record") : isRunning ? "⏸ Pause" : "▶ Start"}
                 </button>
+                <span
+                    title={deltaTitle}
+                    style={{
+                        fontFamily: "monospace",
+                        fontSize: 13,
+                        fontVariantNumeric: "tabular-nums",
+                        color: isLive ? (isRunning ? "#ff6b6b" : "#8f94b5") : "#8f94b5",
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 8,
+                        padding: "8px 10px",
+                        minWidth: isLive ? 110 : 190,
+                        textAlign: "center",
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    {isLive && isRunning ? "● " : ""}
+                    {deltaDisplay}
+                </span>
                 <button
                     className="control-button"
                     onClick={onClearAll}

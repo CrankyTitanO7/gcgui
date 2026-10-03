@@ -219,6 +219,11 @@ function App() {
     // Listening is always on: the serial port connects as soon as usbPort
     // is set and parsers process every "serial-data" event regardless.
     const [isRunning, setIsRunning] = useState(false);
+    // Live recording delta time (seconds since Record pressed). Frozen when
+    // stopped, reset on next Record / Clear All / protocol rotation.
+    const [liveElapsedSec, setLiveElapsedSec] = useState(0);
+    const liveStartRef = useRef(null);
+    const liveTimerRef = useRef(null);
     const [isClearingAll, setIsClearingAll] = useState(false);
     const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
     const [replayInfo, setReplayInfo] = useState(null);
@@ -329,6 +334,9 @@ function App() {
                 } catch (err) {
                     console.error("Failed to start live recording on clear all:", err);
                 }
+                // New file = new delta-time session.
+                liveStartRef.current = Date.now();
+                setLiveElapsedSec(0);
             }
         } finally {
             setIsClearingAll(false);
@@ -434,6 +442,42 @@ function App() {
             window.electronAPI
                 ?.stopLiveRecording?.()
                 .catch(err => console.error("Failed to stop live recording on cleanup:", err));
+        };
+    }, []);
+
+    // ---------------------------------------------------------------------------
+    // Live recording delta-time clock. Ticks while recording, frozen when
+    // stopped. Reset on new recording (protocol switch rotates the file too,
+    // so it restarts the clock as well).
+    // ---------------------------------------------------------------------------
+
+    useEffect(() => {
+        const recording = dataSource === "live" && isRunning;
+        if (!recording) {
+            if (liveTimerRef.current) {
+                clearInterval(liveTimerRef.current);
+                liveTimerRef.current = null;
+            }
+            return;
+        }
+        liveStartRef.current = Date.now();
+        setLiveElapsedSec(0);
+        liveTimerRef.current = setInterval(() => {
+            if (liveStartRef.current != null) {
+                setLiveElapsedSec((Date.now() - liveStartRef.current) / 1000);
+            }
+        }, 100);
+        return () => {
+            if (liveTimerRef.current) {
+                clearInterval(liveTimerRef.current);
+                liveTimerRef.current = null;
+            }
+        };
+    }, [dataSource, isRunning, protocol]);
+
+    useEffect(() => {
+        return () => {
+            if (liveTimerRef.current) clearInterval(liveTimerRef.current);
         };
     }, []);
 
@@ -819,6 +863,21 @@ function App() {
     }
 
     // ---------------------------------------------------------------------------
+    // Topbar delta times. Live = wall-clock since Record pressed.
+    // Replay = log-file delta (current message ts minus first message ts).
+    // ---------------------------------------------------------------------------
+
+    const replayMsgs = replayInfo?.messages ?? [];
+    const replayFirstTs = replayMsgs.length > 0 ? (replayMsgs[0]?.timestamp ?? 0) : 0;
+    const replayCurrentTs =
+        replayMsgs.length > 0
+            ? (replayMsgs[Math.min(replayCurrentIndex, replayMsgs.length - 1)]?.timestamp ?? replayFirstTs)
+            : 0;
+    const replayLastTs = replayMsgs.length > 0 ? (replayMsgs[replayMsgs.length - 1]?.timestamp ?? replayFirstTs) : 0;
+    const replayDeltaSec = Math.max(0, replayCurrentTs - replayFirstTs);
+    const replayTotalSec = Math.max(0, replayLastTs - replayFirstTs);
+
+    // ---------------------------------------------------------------------------
     // Render
     // ---------------------------------------------------------------------------
 
@@ -846,6 +905,9 @@ function App() {
                         onRefreshPorts={refreshPorts}
                         onClearAll={handleClearAll}
                         isClearingAll={isClearingAll}
+                        liveElapsedSec={liveElapsedSec}
+                        replayDeltaSec={replayDeltaSec}
+                        replayTotalSec={replayTotalSec}
                     />
 
                     {/* Transport bar — only visible in log replay mode */}
