@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-09-26T18:46:22.230Z",
+  "shapes": [
+    {
+      "id": 1790446300026,
+      "type": "send",
+      "x": 0,
+      "y": 0,
+      "width": 308,
+      "height": 336,
+      "name": "Send Widget",
+      "dataField": ""
+    },
+    {
+      "id": 1790446309278,
+      "type": "raw-serial",
+      "x": 336,
+      "y": 0,
+      "width": 532,
+      "height": 672,
+      "name": "Raw Serial Widget",
+      "dataField": ""
+    },
+    {
+      "id": 1790446354132,
+      "type": "key-send",
+      "x": 0,
+      "y": 364,
+      "width": 308,
+      "height": 280,
+      "name": "Key Send Widget",
+      "dataField": ""
+    },
+    {
+      "id": 1790446362041,
+      "type": "line-plot",
+      "x": 896,
+      "y": 0,
+      "width": 532,
+      "height": 364,
+      "name": "Line Plot Widget",
+      "dataField": "speed"
+    },
+    {
+      "id": 1790446915486,
+      "type": "line-plot",
+      "x": 896,
+      "y": 392,
+      "width": 532,
+      "height": 308,
+      "name": "Line Plot Widget",
+      "dataField": "speed"
+    }
+  ],
+  "view": {
+    "panX": 34,
+    "panY": 9,
+    "zoom": 0.96
+  }
+}

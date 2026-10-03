@@ -3,8 +3,52 @@
 Desktop application built with **Electron** and **React** (via Vite) for a fast, modern UI experience.
 
 ---
+## quickstart
+### install 
+#### method 1: prebuilt binary
+1. go to releases
+2. click on the relevant file for your OS (.exe for windows, etc)
+3. install and run app
+#### method 2: run from source 
+1. download source files
+2. install nodejs and npm
+3. use "npm run dev"
 
-## Table of Contents
+### usage
+1. select mode ("can" or "csv")
+2. select port (hit refresh if it doesnt come up)
+    > note that you must first close any software reading from that serial port (ie arduino ide serial monitor)
+3. setup widgets 
+    > there are example widget setups (stored as .json files) in assets/examples. Try pliq_template1.json
+4. hit run to start recording!
+
+### can vs csv
+this app can read 2 different kinds of data from serial: 
+
+crtd: 
+```crtd
+timestamp.timestamp cantype id data data data data
+2172.562 R29 0000052C 00 00 FF FF FF FF FF FF
+2172.606 R29 0000052C 00 00 FF FF FF FF FF FF
+2172.652 R29 0000052C 00 00 FF FF FF FF FF FF
+2172.692 R29 0000052C 00 00 FF FF FF FF FF FF
+2172.742 R29 18FF01F4 B8 88 FE D4 00 00 01 FF
+```
+
+and csv
+
+```csv
+timestamp,datapt1,datapt2
+0.00, -11.73, -10.20
+0.11, -11.73, -11.73
+0.22, -11.73, -10.20
+0.32, -11.73, -11.73
+0.42, -11.73, -11.73
+0.52, -11.73, -11.73
+0.62, -11.73, -11.73
+```
+
+<!-- ## Table of Contents
 
 1. [Project Overview](#project-overview)
 2. [Folder Structure](#folder-structure)
@@ -14,7 +58,7 @@ Desktop application built with **Electron** and **React** (via Vite) for a fast,
 6. [Production Build](#production-build)
 7. [React Navigation](#react-navigation)
 8. [Common Issues & Fixes](#common-issues--fixes)
-9. [Tips & Tools for Documentation](#tips--tools-for-documentation)
+9. [Tips & Tools for Documentation](#tips--tools-for-documentation) -->
 
 ---
 
@@ -31,6 +75,23 @@ Desktop application built with **Electron** and **React** (via Vite) for a fast,
 Wrap a React application into a native desktop app using Electron. Provides a modern UI with React and fast development workflow with Vite.
 
 ---
+
+## widgets and their functions 
+
+### number
+shows a number for a given datapoint (csv and crtd)
+### line plot 
+shows a line plot for a given datapoint over time (csv and crtd)
+### raw serial
+shows raw serial input over time (csv and crtd)
+### can interpreter (CAN)
+shows a bunch of data parsed from CAN. Separates messages by id and performs adjustments to match to a given unit of measurement
+### radio (currently CAN, plans to implement for csv as well)
+a dedicated interpreter to show only radio status (ie status and signal strength)
+### send 
+a serial monitor that is able to write to serial (output through serial)
+### key send
+like send, but hits enter after each keypress (keymapping capabilities)
 
 ## Getting Started: Development
 
