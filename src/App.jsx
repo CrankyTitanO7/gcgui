@@ -386,22 +386,28 @@ function App() {
     }, []);
 
     useEffect(() => {
+        // Replay mode stops listening to live serial: disconnect so only
+        // replay injections arrive on the serial-data channel.
+        if (dataSource !== "live") {
+            window.electronAPI?.disconnectSerialPort?.();
+            return;
+        }
         if (usbPort && window.electronAPI?.connectSerialPort) {
             window.electronAPI.connectSerialPort(usbPort, baudRate);
         } else if (!usbPort && window.electronAPI?.disconnectSerialPort) {
             window.electronAPI.disconnectSerialPort();
         }
-    }, [usbPort, baudRate]);
+    }, [usbPort, baudRate, dataSource]);
 
     useEffect(() => {
         const ipc = window.electron?.ipcRenderer;
         if (!ipc) return;
         const handler = (_event, newRate) => {
-            if (usbPort) ipc.send("set-baud-rate", newRate);
+            if (usbPort && dataSource === "live") ipc.send("set-baud-rate", newRate);
         };
         ipc.on("baud-rate-changed", handler);
         return () => ipc.off("baud-rate-changed", handler);
-    }, [usbPort]);
+    }, [usbPort, dataSource]);
 
     // ---------------------------------------------------------------------------
     // Live recording — independent from listening. The serial port stays
